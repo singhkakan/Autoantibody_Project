@@ -92,9 +92,26 @@ heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,
           RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
+###### 3 Data Normalization ########
+```{r Log2 Data normalization and visualization}
+mydata <- as.matrix((data))
+dataN <- (mydata[1:95,]/mydata[96,] * 100) #df with all rows
+dataN <- mydata
+boxplot(as.data.frame(log2(dataN+0.5)),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
 
-```{r}
-
+library(matrixStats) #for function rowmedians
+IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR$average <- rowMeans(IgG_SNR)
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
+mydata <- data[which(IgG_SNR$average>3),] #filtering rows with high noise (i.e., rows with Signal to Noise Ratio or SNR > 3)
+mydata<-as.matrix(mydata)
+dataN <- (mydata[1:69,]/mydata[70,]) * 100
+dataN <- mydata
+boxplot(as.data.frame(log2(dataN+0.5)),main="Signal distribution, Not normalized SNR>3",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
+library(limma) #for function plotMDS
+plotMDS(log2(dataN+0.5))
+mm <- model.matrix(~0 + Group)
+y <- voom((dataN), mm, plot = T)
 ```
 
 
