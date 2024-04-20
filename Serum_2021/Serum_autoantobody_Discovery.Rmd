@@ -115,8 +115,31 @@ y <- voom((dataN), mm, plot = T)
 ```
 
 
-```{r}
+```{r Density plots}
+countData = as.data.frame(dataN)
 
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count") # reshape the matrix 
+df_dseq = data.frame(df_dseq, Condition = substr(df_dseq$Samples,1,1))
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(13)
+
+ggplot(df_dseq, aes(x = log10(count+0.5), colour = Samples, fill = Samples)) + 
+   geom_density(alpha = 0, size = 0.8) + 
+   facet_wrap(~Condition, ncol=3) #+
+   #theme_minimal() + xlim(-1.5,6) +
+   #scale_colour_manual(values=mycolors, name="") + guides(fill="none")
+
+boxplot(as.data.frame(log10(dataN+0.5)),main="IgG normalization",col=strain)
+boxplot(as.data.frame(log10(dataN+0.5)),main="NSI*SNR", col=strain)
+
+mydata <- as.matrix((data+1))
+dataN <- mydata #1
+dataN <- (mydata[1:95,]/mydata[96,] * 100) #2
+dataN <- as.matrix(log10(dataN+1)) #1 and 2
+matcor<-cor(dataN)
+range(as.vector(matcor))
+strain<-as.character(as.numeric(colData$Strain))
+age<-as.character(as.numeric(colData$Age))
+heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
 
