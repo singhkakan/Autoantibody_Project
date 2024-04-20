@@ -92,8 +92,8 @@ heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,
           RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
-###### 3 Data Normalization ########
-```{r Log2 Data normalization and visualization}
+###### 3 Data filtering and Normalization ########
+```{r Data filtering, Log2 Data normalization and visualization}
 mydata <- as.matrix((data))
 dataN <- (mydata[1:95,]/mydata[96,] * 100) #df with all rows
 dataN <- mydata
@@ -105,17 +105,17 @@ IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 mydata <- data[which(IgG_SNR$average>3),] #filtering rows with high noise (i.e., rows with Signal to Noise Ratio or SNR > 3)
 mydata<-as.matrix(mydata)
-dataN <- (mydata[1:69,]/mydata[70,]) * 100
 dataN <- mydata
 boxplot(as.data.frame(log2(dataN+0.5)),main="Signal distribution, Not normalized SNR>3",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
+
+dataN <- (mydata[1:69,]/mydata[70,]) * 100000
+boxplot(as.data.frame(log10(dataN+0.5)),main="IgG normalization",col=strain)
+
 library(limma) #for function plotMDS
 plotMDS(log2(dataN+0.5))
 mm <- model.matrix(~0 + Group)
 y <- voom((dataN), mm, plot = T)
-```
 
-
-```{r Density plots}
 countData = as.data.frame(dataN)
 
 df_dseq = melt(countData, variable.name = "Samples", value.name = "count") # reshape the matrix 
@@ -127,14 +127,10 @@ ggplot(df_dseq, aes(x = log10(count+0.5), colour = Samples, fill = Samples)) +
    facet_wrap(~Condition, ncol=3) #+
    #theme_minimal() + xlim(-1.5,6) +
    #scale_colour_manual(values=mycolors, name="") + guides(fill="none")
+```
 
-boxplot(as.data.frame(log10(dataN+0.5)),main="IgG normalization",col=strain)
-boxplot(as.data.frame(log10(dataN+0.5)),main="NSI*SNR", col=strain)
 
-mydata <- as.matrix((data+1))
-dataN <- mydata #1
-dataN <- (mydata[1:95,]/mydata[96,] * 100) #2
-dataN <- as.matrix(log10(dataN+1)) #1 and 2
+```{r}
 matcor<-cor(dataN)
 range(as.vector(matcor))
 strain<-as.character(as.numeric(colData$Strain))
@@ -142,13 +138,86 @@ age<-as.character(as.numeric(colData$Age))
 heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
+###### 4 DGE analysis ##########
+```{r DGE using Limma lmFit}
+#mydata <- as.matrix((data+0.5))
 
-```{r}
+conditions<- paste(colData$Strain[1:12], colData$Age[1:12],sep=".")
 
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+
+#contrasts of the previous analysis. 
+#cont.matrix<- makeContrasts(B8vsN8 = NOD.8wks - BALBc.8wks, B28vN24 = NOD.24wks - BALBc.28wks,
+#   B28vN33 = NOD.33wks - BALBc.28wks,
+#   N24vN8 = NOD.24wks - NOD.8wks,
+#   N33vN8 = NOD.33wks - NOD.8wks,
+#   N33vN24 = NOD.33wks - NOD.24wks,
+#   levels = design)
+#Introducing new contrasts by removing the 33 week old samples.
+fit <- lmFit(dataN[,1:12], design)
+cont.matrix<- makeContrasts(
+B8vsN8 = NOD.8wks - BALBc.8wks,
+B28vN24 = NOD.24wks - BALBc.28wks,
+N24vN8 = NOD.24wks - NOD.8wks,
+B28vB8 = BALBc.28wks - BALBc.8wks,
+levels = design)
+
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+
+decide <- matrix(c("fdr",0.05,
+                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+
+mysum <- as.list(1:nrow(decide))
+mynum <- 0
+maxmax <- 0
+for (test in 1:nrow(decide)){
+   results<-decideTests(fit.cont,
+                        adjust.method=decide[test,1],
+                        p=as.numeric(decide[test,2]))
+   summary(results) -> mysum[[test]]
+   mynum[test] <-length(which(apply(results,1,function(x)any(x,na.rm=T))))
+   maxmax <- max(c(maxmax, as.vector(mysum[[test]][c(1,3),])))
+}
+par(mfrow=c(1,nrow(decide)))
+for (test in 1:nrow(decide))
+   {
+   as.numeric(as.vector(mysum[[test]][3,]))->plotMe1
+   as.numeric(as.vector(mysum[[test]][1,]))->plotMe2
+   maxData = max(plotMe1)
+   maxData2 = max(plotMe2)
+   barplot(plotMe1,horiz=T,col="red",xlim=c(-maxmax,maxmax),
+           main=paste("Gene Changes \np<",decide[test,2], ", " , decide[test,1],
+                      " (" ,mynum[test] ,")",sep=""))->yy
+   barplot(-plotMe2,horiz=T,col="green",add=T)->yy
+   xx<-vector("integer",ncol(mysum[[test]]))
+   text(xx,yy,colnames(mysum[[test]]))
+   text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
+   text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
+}
 ```
 
 
-```{r}
+```{r DGE Results using Limma}
+results<-decideTests(fit.cont,adjust.method="none", p=0.05)
+summary(results)
+write.fit(fit.cont,file="IgG_DGE_0423.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgG_DGE_0423.csv", header=T, row.names = 1)
+
+toptable1 <- topTable(fit.cont, coef=2, adjust.method="none", p=0.05, sort.by = "P", n = Inf)
+write.csv(toptable1,file="IgG_DGE_0423_II.csv")
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+
+fitObjDE <-fitObj[DElist,]
+
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+fitObjDE
 
 ```
 
