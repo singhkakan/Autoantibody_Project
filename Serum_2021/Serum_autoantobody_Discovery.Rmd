@@ -67,8 +67,12 @@ colData$Age <- relevel(colData$Age, ref='8wks')
 
 ```
 
+###### 1 Visualizing raw data ###########
+```{r Visualization}
+mydata<-as.matrix(log2(data+0.5))
 
-```{r}
+boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
+
 
 ```
 
