@@ -45,8 +45,25 @@ library(limma)
 library(gplots)
 ```
 
+##### 0 Dataset ######
+```{r Dataset}
+data <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SH_179_raw.csv",  header=T, row.names = 1)
+#Columns 16-47 are empty and are therefore removed
+data <- as.data.frame((data))[,-c(16:47)]
 
-```{r}
+#Creating metadata including Strain and age
+Strain <- c(rep(c("BALBc", "NOD"), each=6), rep(c("NOD"), each=3))
+Age <- c(rep(c("8wks", "28wks"), each=3), rep(c("8wks", "24wks", "33wks"), each=3))
+Group <- c(rep(c("A","B","C","D","E"), each=3))
+colData <- as.data.frame(cbind(c('B1_8', 'B2_8', 'B3_8', 'B1_28', 'B2_28', 'B3_28', 'N1_8', 'N2_8', 'N3_8', 'N1_24', 'N2_24', 'N3_24', 'N1_33', 'N2_33', 'N3_33'), Strain, Age, Group))
+colnames(colData) <- c('Sample', "Strain", "Age", "Group")
+rownames(colData) <- colData$Sample
+colnames(data) <- colData$Sample
+
+colData$Strain <- factor(colData$Strain)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Age <- factor(colData$Age, levels = c("8wks", "24wks", "28wks", "33wks"))
+colData$Age <- relevel(colData$Age, ref='8wks')
 
 ```
 
