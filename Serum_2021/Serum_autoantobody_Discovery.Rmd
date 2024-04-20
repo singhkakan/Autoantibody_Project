@@ -69,6 +69,8 @@ colData$Age <- relevel(colData$Age, ref='8wks')
 
 ###### 1 Visualizing raw data ###########
 ```{r Visualization}
+#Boxplot of raw Signal Distribution, not normalized
+
 mydata<-as.matrix(log2(data+0.5))
 
 boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
@@ -76,9 +78,18 @@ boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="S
 
 ```
 
+######2 Clustering samples based on Pearson correlation ############
 
-```{r}
+```{r Sample Clustering}
+matcor<-cor(mydata)
+range(as.vector(matcor))
 
+strain<-as.character(as.numeric(colData$Strain))
+age<-as.character(as.numeric(colData$Age))
+
+library(gplots)
+heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,
+          RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
 
