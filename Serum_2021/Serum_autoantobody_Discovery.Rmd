@@ -10,16 +10,112 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r cars}
-summary(cars)
+```{r Loading the libraries}
+
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(emmeans)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+library(PCAtools)
+library(tidyverse)
+library(Biobase)
+library(marray)
+library(limma)
+library(gplots)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
