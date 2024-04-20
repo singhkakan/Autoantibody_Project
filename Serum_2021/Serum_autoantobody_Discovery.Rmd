@@ -1,5 +1,10 @@
 ---
 title: "Serum_Autoantibody_2021"
+knit: (function(input_file, encoding) {
+    out_dir <- 'docs';
+    rmarkdown::render(input_file,
+      encoding=encoding,
+      output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 author: "ShrutiSinghKakan"
 date: "`r Sys.Date()`"
 output: html_document
@@ -10,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r Loading the libraries}
+```{r Loading the libraries, message=FALSE, warning=FALSE}
 
 library(car)
 library(lsmeans)
