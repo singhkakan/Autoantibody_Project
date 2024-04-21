@@ -201,12 +201,12 @@ for (test in 1:nrow(decide))
 
 
 ```{r DGE Results using Limma}
-results<-decideTests(fit.cont,adjust.method="none", p=0.05)
+results<-decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
 write.fit(fit.cont,file="IgG_DGE_0423.csv",adjust="none",results=results, sep=',')
 fitObj <- read.csv("IgG_DGE_0423.csv", header=T, row.names = 1)
 
-toptable1 <- topTable(fit.cont, coef=2, adjust.method="none", p=0.05, sort.by = "P", n = Inf)
+toptable1 <- topTable(fit.cont, coef=2, adjust.method="none", p=0.01, sort.by = "P", n = Inf)
 write.csv(toptable1,file="IgG_DGE_0423_II.csv")
 
 myNames<-names(fitObj)
@@ -223,11 +223,37 @@ fitObjDE
 
 
 ```{r}
+library(devtools)
+install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
 
+library(devtools)
+install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+library(discreteMTP)
 ```
 
-
+#Sample Spot and Background Distributions
 ```{r}
+IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[1:96,1:12]
+IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[1:96,1:12]
+Strain <- c(rep(c("BALBc", "NOD"), each=6))
+Age <- c(rep(c("8wks", "28wks"), each=3), rep(c("8wks", "24wks"), each=3))
+Group <- c(rep(c("A","B","C","D"), each=3))
+colData <- as.data.frame(cbind(c('B1_8', 'B2_8', 'B3_8', 'B1_28', 'B2_28', 'B3_28', 'N1_8', 'N2_8', 'N3_8', 'N1_24', 'N2_24', 'N3_24'), Strain, Age, Group))
+colnames(colData) <- c('Sample', "Strain", "Age", "Group")
+rownames(colData) <- colData$Sample
+colnames(IgG_NSI) <- colData$Sample
+colnames(IgG_SNR) <- colData$Sample
+
+colData$Strain <- factor(colData$Strain)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Age <- factor(colData$Age)
+colData$Age <- relevel(colData$Age, ref='8wks')
 
 ```
 
