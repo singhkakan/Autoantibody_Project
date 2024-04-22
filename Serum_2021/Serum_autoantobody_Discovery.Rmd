@@ -234,8 +234,27 @@ library(fdrtool)
 #library(discreteMTP)
 ```
 
-#Sample Spot and Background Distributions
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+### Reading in Raw Dara
+```{r}
+IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR$average <- rowMeans(IgG_SNR)
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
+IgG_NSI <- IgG_NSI[which(IgG_SNR$average>3),]
+IgG_SNR <- IgG_SNR[which(IgG_SNR$average>3),]
+IgG_raw=list()
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$SNR <- as.matrix(IgG_SNR)[,1:12] #Excluding the Nod 33 week sample
+
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Age <- factor(colData$Age, levels = c("8wks", "24wks","28wks"))
+colData$Age <- relevel(colData$Age, ref="8wks")
+IgG_raw$SInfo <- colData
+```
+
+
+### Sample Spot and Background Distributions
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[1:96,1:12]
 IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[1:96,1:12]
 Strain <- c(rep(c("BALBc", "NOD"), each=6))
@@ -254,8 +273,8 @@ colData$Age <- relevel(colData$Age, ref='8wks')
 
 ```
 
-######Data Filtering #######
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+### Data Filtering #######
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 colData <- colData[1:12,] #remove the last group - M NOD 33 wks
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
@@ -298,7 +317,7 @@ for(j in 1:12) {
 ```
 
 #Centering and Scaling Differences Across Features
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 # Tukey Tri-mean for location
 TriMnG=RowTriMeans(IgG_raw$NSI)
 # Biweight midvariance for spread
@@ -322,7 +341,7 @@ legend("topleft",pch=c(12),col=c("midnightblue"),
 ```
 
 
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 #Heatmaps heatmaps using the uniform rank-its (i.e., rank values scaled to the unit interval) of the assays values across samples (i.e., the rank-its of the spot quantifications for each autoantigen across all 10 samples)
 
 if(!file.exists("docs/Fheatmap3.png")){
@@ -350,7 +369,7 @@ pheatmap(RnkSmplW, annCol=factor(colData$Strain), main="Rank-it (Across Samples)
 ```
 
 #### Normalization First Stage ####
-```{r}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 eps=.10
 #tiff("fig4.tiff", units="in", width=6, height=8, res=300)  
 par(mfrow=c(4,3));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
@@ -371,7 +390,7 @@ for(j in 1:12){
 ```
 
 ##### enable to background correct
-```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 IgG_raw$NSI <- as.matrix(IgG_NSI)
 IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR
 par(mfrow=c(1,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
@@ -424,7 +443,7 @@ legend(400000, 0.00005,lty=1,lwd=3,col=clrs[c(1,4,7,11)],pch=pchs[c(1,4,7,11)],l
 ```
 
 
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 #tiff("fig6.tiff", units="in", width=7, height=6, res=300)  
 par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
 eps=0.10
@@ -486,7 +505,7 @@ legend(4000,0.0009,lty=1,lwd=2,col=clrs[c(1,4,7,10)],legend=c(paste(rep("B",2),r
 
 ###### The normalized assay values are log transformed for purposes of variance stabilization and ease of visualization. Prior to the log transform, a constant is added to the normalized data such that all normalized assay values are greater than or equal to 1. 
 
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 deltaG=min(as.vector(IgG_raw$X_norm_1))
 IgG_raw$W_1=log(IgG_raw$X_norm_1-deltaG+1)
 IgG_raw$W_2=log(IgG_raw$X_norm_1-deltaG+1)
@@ -531,7 +550,7 @@ AAplotByMean(IgG_raw,SampleIndices=1:12,clrs=clrs,pchs=pchs,MeanSubset=1:12,useM
 ```
 
 ###### Heatmap of normalized data
-```{r Heatmap final , fig.height=12, fig.width=7, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r Heatmap final, eval=FALSE, fig.height=12, fig.width=7, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 ###### Heatmap of normalized data
 
 RnkSmplW_1=matrix(nrow=70,ncol=12)
@@ -584,7 +603,7 @@ for(i in 1:6){
 
 #Wilcoxon Rank Sum tests were utilized to formally test for differential autoantigen expression (with respect to NOD.B10 versus BL/10 animals). P-values were adjusted by the method of Benjamini and Hochberg [@bh1995] and the corresponding "q-values" are reported. Given the discrete nature of the underlying p-value distribution, the Benjamini and Hochberg FDR estimates can be considered as conservative.  The more liberal mid-P [@heller2011false] modified Benjamini and Hochberg q-values were also calculated and are reported (although, the control of FDR for that approach is not strictly guaranteed).
 
-```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 par(mfrow=c(2,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.75,0.25))
 
 #====================================================#
@@ -628,7 +647,7 @@ tblGi=round(out[hcDX,],4)
 
 ###### B8 vs N8
 Few autoantibodies are differentially expressed at 8 weeks of age
-```{r 8 weeks comparison, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r 8 weeks comparison, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 jWRS=function(j) wilcox.test(W[j,1:3],W[j,7:9])$p.value
 myWRS=mapply(jWRS,1:70)
 myQ=p.adjust(myWRS,method="BH")
@@ -654,8 +673,31 @@ head(tblGj)
 ```
 
 
+##### B28 vs N24
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+kWRS=function(k) wilcox.test(W[k,4:6],W[k,10:12])$p.value
+myWRS=mapply(kWRS,1:70)
+myQ=p.adjust(myWRS,method="holm")
+pCDFlist=list(2*((1:151)/252))
+for(k in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
+myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "none")
+# order the features by statistical significance
+odx=order(myWRS)
+# compute HC scores
+hcG=hc.score(myWRS)
+# determine HC threshold
+hcGcut=hc.thresh(myWRS)
+title("Higher Critcism Decision Threshold: IgG")
+hcDX=which(myWRS[odx]<=hcGcut)
+out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
+rownames(out)=rownames(W)
+colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
+out=out[odx,]
+DE.IgGk=which(myWRS<0.1)
+# make table
 
-```{r}
+tblGk=round(out[hcDX,],4)
+head(tblGk)
 
 ```
 
