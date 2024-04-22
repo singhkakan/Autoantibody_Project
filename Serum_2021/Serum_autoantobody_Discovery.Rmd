@@ -231,10 +231,10 @@ library(NMF)
 library(quantreg)
 library(asbio)
 library(fdrtool)
-#library(discreteMTP)
+library(discreteMTP)
 ```
 
-### Reading in Raw Dara
+### Reading in Raw Data
 ```{r}
 IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[,1:15]
 IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
@@ -398,7 +398,9 @@ for (i in 1:70){
 #summary(lm.first)$r.squared
 
 ```
-#### Deciding criteria for p-value correction
+
+
+### Deciding criteria for p-value correction
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
@@ -448,14 +450,66 @@ fitObjDE <-fitObj[DElist,]
 
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 
-fitObjres<- fitObj[which(fitObj$P.value.B28vN24 < 0.01 & abs(fitObj$Coef.B28vN24) > 0), ]
+fitObjres<- fitObj[which(fitObj$P.value.B28vN24 < 0.05 & abs(fitObj$Coef.B28vN24) > 0), ]
 fitObjres
 
 ```
 
+#### boxplot ######
 ```{r}
+mydata <- as.matrix(IgG_raw$W_1)[1:70,]
+hits <- rownames(fitObjres)
 
+chart_design <- theme(
+   plot.title = element_text(color = "Black", size = 17, face = "bold", margin = margin(b=25), hjust=0.4),
+   axis.text.x = element_text(size=14),
+   axis.text.y = element_text(size=12),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=12, margin = margin(r=0,l=-5)),
+   legend.title = element_blank(),
+   legend.position = "bottom",
+   axis.title.y = element_text(size=13, margin = margin(r = 5)),
+   strip.text.x = element_text(size =17, margin = margin(b=25), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+Y=matrix(nrow=26,ncol=12)
+for (i in 1:26) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample
+
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain
+Y$Age <- colData$Age
+Y$Group <- colData$Group
+
+hits <- colnames(Y)[1:13]
+colnames(Y)[8] <- "KU (P70/P80)"
+colnames(Y)[9] <- "La/SSB"
+colnames(Y)[17] <- "PM/Scl-100"
+colnames(Y)[19] <- "RPP P2"
+colnames(Y)[20] <- "RPP P0"
+
+par(mfrow=c(2,5))
+for (i in 1:26){
+   filename <- paste(hits[i], ".IgG.tiff", sep="")
+   p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Age)) +
+      geom_boxplot(outlier.shape = NA, width = 0.7, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9) ) +
+      scale_fill_jco() +
+      scale_color_manual(values=c("black", "navy")) +
+      theme_minimal() +
+      chart_design +
+         ylab("Log Normalized Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_x_discrete("Strain", labels=c("BALB/c", "NOD"))
+   tiff(filename, units="in", width=2.85, height=2.9, res=300)
+   print(p)
+   dev.off()
+}
 ```
+
 
 ```{r}
 
@@ -601,63 +655,6 @@ DE.IgGi=which(myWRS<0.025)
 tblGi=round(out[hcDX,],4)
 
 ```
-
-###### B8 vs N8
-Few autoantibodies are differentially expressed at 8 weeks of age
-```{r 8 weeks comparison, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-jWRS=function(j) wilcox.test(W[j,1:3],W[j,7:9])$p.value
-myWRS=mapply(jWRS,1:70)
-myQ=p.adjust(myWRS,method="BH")
-pCDFlist=list(2*((1:151)/252))
-for(j in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
-myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "BHmidp")
-# order the features by statistical significance
-odx=order(myWRS)
-# compute HC scores
-hcG=hc.score(myWRS)
-# determine HC threshold
-hcGcut=hc.thresh(myWRS)
-title("Higher Critcism Decision Threshold: IgG")
-hcDX=which(myWRS[odx]<=hcGcut)
-out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
-rownames(out)=rownames(W)
-colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
-out=out[odx,]
-DE.IgGj=which(myWRS<0.025)
-# make table
-tblGj=round(out[hcDX,],4)
-head(tblGj)
-```
-
-
-##### B28 vs N24
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-kWRS=function(k) wilcox.test(W[k,4:6],W[k,10:12])$p.value
-myWRS=mapply(kWRS,1:70)
-myQ=p.adjust(myWRS,method="holm")
-pCDFlist=list(2*((1:151)/252))
-for(k in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
-myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "none")
-# order the features by statistical significance
-odx=order(myWRS)
-# compute HC scores
-hcG=hc.score(myWRS)
-# determine HC threshold
-hcGcut=hc.thresh(myWRS)
-title("Higher Critcism Decision Threshold: IgG")
-hcDX=which(myWRS[odx]<=hcGcut)
-out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
-rownames(out)=rownames(W)
-colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
-out=out[odx,]
-DE.IgGk=which(myWRS<0.1)
-# make table
-
-tblGk=round(out[hcDX,],4)
-head(tblGk)
-
-```
-
 
 ```{r}
 
