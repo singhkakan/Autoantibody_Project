@@ -221,11 +221,11 @@ fitObjDE
 
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 library(devtools)
-install_github("dpgaile/AutoAntArrayExmpl")
+#install_github("dpgaile/AutoAntArrayExmpl")
 library(AutoAntArrayExmpl)
 
 library(devtools)
-install_github("dpgaile/AutoAntArrayExmpl")
+#install_github("dpgaile/AutoAntArrayExmpl")
 library(AutoAntArrayExmpl)
 library(NMF)
 library(quantreg)
@@ -371,7 +371,7 @@ for(j in 1:12){
 ```
 
 ##### enable to background correct
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 IgG_raw$NSI <- as.matrix(IgG_NSI)
 IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR
 par(mfrow=c(1,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
@@ -424,13 +424,13 @@ legend(400000, 0.00005,lty=1,lwd=3,col=clrs[c(1,4,7,11)],pch=pchs[c(1,4,7,11)],l
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 #tiff("fig6.tiff", units="in", width=7, height=6, res=300)  
 par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
 eps=0.10
 q.eps=0.10
 lambda=.10 # incremental change
-nitr=95 # number of iterations (going upto 95, 46th iteration was found to be optimum)
+nitr=75 # number of iterations (going upto 95, 46th iteration was found to be optimum)
 sad=rep(0,nitr) # sum of absolute deviations
 
 # re-init
@@ -457,8 +457,8 @@ for(i in 1:nitr){
       IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-lambda*prdct #calculating actual values
       sad[i]=sad[i]+sum(abs(2*lambda*prdct))
    }
-} #### the lowest sad or "sum of deviations" occurs at the 46th iteration.
-#qcut at this i=46 is 0.0054
+} #### the lowest sad or "sum of deviations" occurs at the 74th iteration.
+#qcut at this i=46 is 0.0074
 
 plot(1:nitr,sad,main="iterative adj IgG")
 smoothScatter(IgG_raw$X_1step_norm_1,IgG_raw$X_norm_1, nbin = 300)
@@ -482,7 +482,100 @@ legend(4000,0.0009,lty=1,lwd=2,col=clrs[c(1,4,7,10)],legend=c(paste(rep("B",2),r
 #dev.off()
 ```
 
+#### Second Stage of Normalization
+
+###### The normalized assay values are log transformed for purposes of variance stabilization and ease of visualization. Prior to the log transform, a constant is added to the normalized data such that all normalized assay values are greater than or equal to 1. 
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+deltaG=min(as.vector(IgG_raw$X_norm_1))
+IgG_raw$W_1=log(IgG_raw$X_norm_1-deltaG+1)
+IgG_raw$W_2=log(IgG_raw$X_norm_1-deltaG+1)
+
+#tiff("fig7.tiff", units="in", width=8, height=7, res=300)  
+par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+AAModesIgG=AAplotDens(IgG_raw,SampleIndices=1:12,clrs=clrs,useMat="resid",xlims=NA,returnModes=T,main="IgG Residual (Stage 1) log Spot Signal")
+legend(-0.6,14,lty=1,lwd=2,col=clrs[c(1,4,7,10)],legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1) #did not plot
+
+# get resids..
+W_1=IgG_raw$W_1
+RW=RowTriMeans(W_1)
+# get residual matrices
+RW_MAT=matrix(rep(RW,dim(W_1)[2]),ncol=dim(W_1)[2])
+W_1=W_1-RW_MAT #value - trimean
+
+W=W_1
+bw.est=unlist(apply(W,2,r.bw)) ####bivariate midvariance is something like pearsons r2. variances across columns
+
+# now, rescale
+for(j in 1:12){
+   W_1[,j]=W_1[,j]/sqrt(bw.est[j]) #sq. root of bivariance is an estimate of sd
+}
+# now, get new values..
+IgG_raw$W_1=RW_MAT+W_1
+IgG_raw$W_2=RW_MAT+W_1
+
+AAplotDens(IgG_raw,SampleIndices=1:12,clrs=clrs,useMat='resid',
+           xlims=NA,returnModes=T,main="IgG Residual (Stage 2) log Spot Signal")
+legend(2.5,0.55,lty=1,lwd=2,col=clrs,legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1)
+
+plot(density(log2(IgG_raw$W_1[,1]+65)-7.20), main="(logW_1) ", sub=" . ", type="l")
+for(j in 2:12) {
+   dens<-density(log2(IgG_raw$W_1[,j]+65)-7.20)
+   lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+
+AAplotByMean(IgG_raw,SampleIndices=1:12,clrs=clrs,pchs=pchs,MeanSubset=1:12,useMat="log",main="IgG log normalized")
+AAplotByMean(IgG_raw,SampleIndices=1:12,clrs=clrs,pchs=pchs,MeanSubset=1:12,useMat="resid",main="IgG residuals log normalized")
+#dev.off()
+
+```
+
 
 ```{r}
 
 ```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
