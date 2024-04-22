@@ -355,11 +355,42 @@ dev.off()
 
 #### Normalization First Stage ####
 ```{r}
-
+eps=.10
+tiff("fig4.tiff", units="in", width=6, height=8, res=300)  
+par(mfrow=c(4,3));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+TriMn=RowTriMeans(IgG_raw$NSI)
+ResMat=(IgG_raw$NSI)-matrix(rep(TriMn,12),ncol=12)
+SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
+for(j in 1:12){
+   plot(TriMn,ResMat[,j],
+        xlab="Raw Signal Tri-Mean",ylab="Residual Raw Signal",
+        main=paste("IgG Raw Signal ; Sample",j),
+        cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+   y=ResMat[,j]
+   x=TriMn
+   fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j])) #calculating the the quantile reggression fit, excluding the outliers
+   abline(coef(fitj),col=clrs[j])
+}
+dev.off() ### here we are plotting the autoantigen rowmeans as a function of their residuals.
 ```
 
-
+# enable to background correct
 ```{r}
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR
+par(mfrow=c(1,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+plot(density(log10(IgG_raw$NSI[,1]+ 0.5)), main="  log10(NSI +0.5)", sub=" . ",type="l")
+for(j in 2:12) {
+   dens<-density(log10(IgG_raw$NSI[,j]+0.5))
+   lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+
+IgG_raw$X_norm_1=IgG_raw$NSI
+eps=.10
+IgG_raw$QregFits=array(NA,dim=c(12,70))
+TriMn=RowTriMeans(IgG_raw$X_norm_1) ### rowmeans
+ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
+SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
 
 ```
 
