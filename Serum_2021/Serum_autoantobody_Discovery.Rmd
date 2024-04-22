@@ -530,20 +530,127 @@ AAplotByMean(IgG_raw,SampleIndices=1:12,clrs=clrs,pchs=pchs,MeanSubset=1:12,useM
 
 ```
 
+###### Heatmap of normalized data
+```{r Heatmap final , fig.height=12, fig.width=7, message=FALSE, warning=FALSE, paged.print=FALSE}
+###### Heatmap of normalized data
 
-```{r}
+RnkSmplW_1=matrix(nrow=70,ncol=12)
+RnkSmplW_1[,1]=IgG_raw$W_1[,1]
+for(j in 2:12) RnkSmplW_1[,j]=IgG_raw$W_1[,j]
+for(i in 1:70) RnkSmplW_1[i,]=rank(RnkSmplW_1[i,])/(13)
+colnames(RnkSmplW_1)=as.character((colData$Sample))
+rownames(RnkSmplW_1) <- rownames(IgG_raw$W_1)
 
+#tiff("fig8.tiff", units="in", width=6, height=12.5, res=300)   
+pheatmap(RnkSmplW_1,annCol=factor(colData$Strain),main="Rank-it (Across Samples) Normalized Signal IgG",dist="euclidean",hclust="ward")
+#dev.off()
+```
+
+```{r Scaling, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+par(mfrow=c(1,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.75,1.5))
+# get resids..
+W_1G=IgG_raw$W_1
+RWG=RowTriMeans(W_1G)
+# get residual matrices
+RWG_MAT=matrix(rep(RWG,dim(W_1G)[2]),ncol=dim(W_1G)[2])
+res_1G=W_1G-RWG_MAT
+
+# diagnostic.. check for comp hybrid effects..
+smoothScatter(as.vector(rbind(res_1G,res_1G)))  
+
+ResG=res_1G[,1]
+for(j in 2:12){
+   ResG=cbind(ResG,res_1G[,j])
+}
+spD_G=as.dist(1-cor(ResG,method="spearman"))
+
+cmdG=cmdscale(spD_G,k=2)
+
+rownames(cmdG)=as.character(c(paste(rep("B",6),rep(c(8,28), each=3)), paste(rep("N",6),rep(c(8,24), each=3))))
+
+plot(cmdG[,1],cmdG[,2],type="n",axes=F,xlab="",ylab="",
+     main="Metric Multidimensional Scaling: IgG",cex.main=1)
+axis(1);axis(2)
+for(i in 1:6){
+   i1=2*i-1 ; i2=2*i
+   lines(cmdG[c(i1,i2),1],cmdG[c(i1,i2),2],col=clrs[i])
+   text(cmdG[i1,1],cmdG[i1,2],col=clrs[i],rownames(cmdG)[i1],cex=3/4)
+   text(cmdG[i2,1],cmdG[i2,2],col=clrs[i],rownames(cmdG)[i2],cex=3/4)
+}
 ```
 
 
+######## Differential Expression 
 
-```{r}
+#Wilcoxon Rank Sum tests were utilized to formally test for differential autoantigen expression (with respect to NOD.B10 versus BL/10 animals). P-values were adjusted by the method of Benjamini and Hochberg [@bh1995] and the corresponding "q-values" are reported. Given the discrete nature of the underlying p-value distribution, the Benjamini and Hochberg FDR estimates can be considered as conservative.  The more liberal mid-P [@heller2011false] modified Benjamini and Hochberg q-values were also calculated and are reported (although, the control of FDR for that approach is not strictly guaranteed).
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+par(mfrow=c(2,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.75,0.25))
+
+#====================================================#
+# Code for IgG
+#====================================================#
+
+W=IgG_raw$W_1
+RTM=rank(RowTriMeans(W_1))/13
+
+#### all balbs vs all NODs ######
+
+#packageurl <- "http://cran.nexr.com/src/contrib/discreteMTP_0.1-2.tar.gz"
+#install.packages(packageurl, repos=NULL, type="source")
+library(discreteMTP) #function p.discrete.adjust uses this package
+iWRS=function(i) wilcox.test(W[i,1:6],W[i,7:12])$p.value
+myWRS=mapply(iWRS,1:70)
+myQ=p.adjust(myWRS,method="BH")
+pCDFlist=list(2*((1:151)/252))
+for(i in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
+myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "BHmidp")
+
+# order the features by statistical significance
+odx=order(myWRS)
+# compute HC scores
+hcG=hc.score(myWRS)
+# determine HC threshold
+hcGcut=hc.thresh(myWRS)
+title("Higher Critcism Decision Threshold: IgG")
+hcDX=which(myWRS[odx]<=hcGcut)
+out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
+rownames(out)=rownames(W)
+colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
+out=out[odx,]
+#cat("\n AutoAntigen IgG Differential Expression",fill=T)
+#print(out[hcDX,])
+DE.IgGi=which(myWRS<0.025)
+# make table
+tblGi=round(out[hcDX,],4)
 
 ```
 
-
-```{r}
-
+###### B8 vs N8
+Few autoantibodies are differentially expressed at 8 weeks of age
+```{r 8 weeks comparison, message=FALSE, warning=FALSE, paged.print=FALSE}
+jWRS=function(j) wilcox.test(W[j,1:3],W[j,7:9])$p.value
+myWRS=mapply(jWRS,1:70)
+myQ=p.adjust(myWRS,method="BH")
+pCDFlist=list(2*((1:151)/252))
+for(j in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
+myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "BHmidp")
+# order the features by statistical significance
+odx=order(myWRS)
+# compute HC scores
+hcG=hc.score(myWRS)
+# determine HC threshold
+hcGcut=hc.thresh(myWRS)
+title("Higher Critcism Decision Threshold: IgG")
+hcDX=which(myWRS[odx]<=hcGcut)
+out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
+rownames(out)=rownames(W)
+colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
+out=out[odx,]
+DE.IgGj=which(myWRS<0.025)
+# make table
+tblGj=round(out[hcDX,],4)
+head(tblGj)
 ```
 
 
