@@ -370,7 +370,7 @@ for(j in 1:12){
 #dev.off() ### here we are plotting the autoantigen rowmeans as a function of their residuals.
 ```
 
-# enable to background correct
+##### enable to background correct
 ```{r}
 IgG_raw$NSI <- as.matrix(IgG_NSI)
 IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR
@@ -425,7 +425,61 @@ legend(400000, 0.00005,lty=1,lwd=3,col=clrs[c(1,4,7,11)],pch=pchs[c(1,4,7,11)],l
 
 
 ```{r}
+#tiff("fig6.tiff", units="in", width=7, height=6, res=300)  
+par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+eps=0.10
+q.eps=0.10
+lambda=.10 # incremental change
+nitr=95 # number of iterations (going upto 95, 46th iteration was found to be optimum)
+sad=rep(0,nitr) # sum of absolute deviations
 
+# re-init
+IgG_raw$X_1step_norm_1=IgG_raw$X_norm_1 
+IgG_raw$X_norm_1=IgG_raw$NSI
+
+for(i in 1:nitr){
+     # snoop and grab invariants
+   X=IgG_raw$X_norm_1
+   iWRS=function(i) t.test(X[i,1:6],X[i,7:12])$p.value
+   qMat=matrix(rep(mapply(iWRS,1:70),12),ncol=12)
+   qMat[which(is.na(qMat[,1])==T),] <- 0
+   qcut=quantile(qMat[,1],prob=q.eps)
+   
+   TriMn=RowTriMeans(IgG_raw$X_norm_1)
+   ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
+   SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
+   SubMat[qMat<qcut]=FALSE
+   for(j in 1:12){
+      y=ResMat[,j]
+      x=TriMn
+      fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j]))
+      prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+      IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-lambda*prdct #calculating actual values
+      sad[i]=sad[i]+sum(abs(2*lambda*prdct))
+   }
+} #### the lowest sad or "sum of deviations" occurs at the 46th iteration.
+#qcut at this i=46 is 0.0054
+
+plot(1:nitr,sad,main="iterative adj IgG")
+smoothScatter(IgG_raw$X_1step_norm_1,IgG_raw$X_norm_1, nbin = 300)
+abline(0,1,col="steelblue")
+
+plot(density((IgG_raw$X_1step_norm_1[,1]),type="l"), main="(X_1step_norm_1) ", sub=" . ")
+for(j in 2:12) {
+   dens<-density((IgG_raw$X_1step_norm_1[,j]))
+   lines(dens, cex=1.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+legend(400000, 0.00005,lty=1,lwd=3,col=clrs[c(1,4,7,11)],pch=pchs[c(1,4,7,11)],legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1)
+
+plot(density((IgG_raw$X_norm_1[,1]),type="l"), main="(X_norm_1) ", sub=" . ")
+for(j in 2:12) {
+   dens<-density((IgG_raw$X_norm_1[,j]))
+   lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+
+legend(4000,0.0009,lty=1,lwd=2,col=clrs[c(1,4,7,10)],legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1)
+
+#dev.off()
 ```
 
 
