@@ -46,7 +46,7 @@ library(gplots)
 ```
 
 ##### 0 Dataset ######
-```{r Dataset}
+```{r Dataset, message=FALSE, warning=FALSE, paged.print=FALSE}
 data <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SH_179_raw.csv",  header=T, row.names = 1)
 #Columns 16-47 are empty and are therefore removed
 data <- as.data.frame((data))[,-c(16:47)]
@@ -68,19 +68,17 @@ colData$Age <- relevel(colData$Age, ref='8wks')
 ```
 
 ###### 1 Visualizing raw data ###########
-```{r Visualization}
+```{r Visualization, message=FALSE, warning=FALSE, paged.print=FALSE}
 #Boxplot of raw Signal Distribution, not normalized
 
 mydata<-as.matrix(log2(data+0.5))
 
 boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
-
-
 ```
 
 ######2 Clustering samples based on Pearson correlation ############
 
-```{r Sample Clustering}
+```{r Sample Clustering, message=FALSE, warning=FALSE, paged.print=TRUE}
 matcor<-cor(mydata)
 range(as.vector(matcor))
 
@@ -93,7 +91,7 @@ heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,
 ```
 
 ###### 3 Data filtering and Normalization ########
-```{r Data filtering, Log2 Data normalization and visualization}
+```{r Data filtering, message=FALSE, warning=FALSE, paged.print=FALSE}
 mydata <- as.matrix((data))
 dataN <- (mydata[1:95,]/mydata[96,] * 100) #df with all rows
 dataN <- mydata
@@ -130,7 +128,7 @@ ggplot(df_dseq, aes(x = log10(count+0.5), colour = Samples, fill = Samples)) +
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 matcor<-cor(dataN)
 range(as.vector(matcor))
 strain<-as.character(as.numeric(colData$Strain))
@@ -139,7 +137,7 @@ heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,RowSideCo
 ```
 
 ###### 4 DGE analysis ##########
-```{r DGE using Limma lmFit}
+```{r DGE using Limma lmFit, message=FALSE, warning=FALSE, paged.print=FALSE}
 #mydata <- as.matrix((data+0.5))
 
 conditions<- paste(colData$Strain[1:12], colData$Age[1:12],sep=".")
@@ -169,7 +167,6 @@ fit.cont<- eBayes(fit.cont)
 
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
-
 mysum <- as.list(1:nrow(decide))
 mynum <- 0
 maxmax <- 0
@@ -200,7 +197,7 @@ for (test in 1:nrow(decide))
 ```
 
 
-```{r DGE Results using Limma}
+```{r DGE Results using Limma, message=FALSE, warning=FALSE, paged.print=FALSE}
 results<-decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
 write.fit(fit.cont,file="IgG_DGE_0423.csv",adjust="none",results=results, sep=',')
@@ -222,7 +219,7 @@ fitObjDE
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 library(devtools)
 install_github("dpgaile/AutoAntArrayExmpl")
 library(AutoAntArrayExmpl)
@@ -234,11 +231,11 @@ library(NMF)
 library(quantreg)
 library(asbio)
 library(fdrtool)
-library(discreteMTP)
+#library(discreteMTP)
 ```
 
 #Sample Spot and Background Distributions
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[1:96,1:12]
 IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[1:96,1:12]
 Strain <- c(rep(c("BALBc", "NOD"), each=6))
@@ -258,7 +255,7 @@ colData$Age <- relevel(colData$Age, ref='8wks')
 ```
 
 ######Data Filtering #######
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 colData <- colData[1:12,] #remove the last group - M NOD 33 wks
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
@@ -272,7 +269,7 @@ IgG_raw$SInfo <- colData
 clrs=c(rep(pal_jco("default")(5), each=3))[1:12]
 pchs=c(rep(3,3),rep(4,3), rep(5,3), rep(6,3), rep(7,3))[1:12]
 
-tiff("fig1_.tiff", units="in", width=7, height=7.4, res=300)
+#tiff("fig1_.tiff", units="in", width=7, height=7.4, res=300)
 par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
 plot(as.vector(IgG_raw$NSI),as.vector(IgG_raw$SNR),type="n",ylab="IgG Background Intensity (SNR)",xlab="IgG Spot Intensity (NSI)" )
 abline(0,1,lwd=3,col="steelblue")
@@ -297,17 +294,17 @@ for(j in 1:12) {
    lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
 }
 
-dev.off()
+#dev.off()
 ```
 
 #Centering and Scaling Differences Across Features
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 # Tukey Tri-mean for location
 TriMnG=RowTriMeans(IgG_raw$NSI)
 # Biweight midvariance for spread
 bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw))
 
-tiff("fig2.tiff", units="in", width=7, height=3.6, res=300)
+#tiff("fig2.tiff", units="in", width=7, height=3.6, res=300)
 par(mfrow=c(1,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,3.25,1.5,0.75))
 plot(TriMnG,bw.estG,pch=c(rep(12)),
      col=c(rep("darkgreen",12)),
@@ -321,21 +318,20 @@ plot(log(TriMnG),log(bw.estG),pch=c(rep(12)),
      ylab="Log Autoantigen Biweight Midvariance")
 legend("topleft",pch=c(12),col=c("midnightblue"),
        legend="IgG",bty="n") 
-dev.off()
+#dev.off()
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 #Heatmaps heatmaps using the uniform rank-its (i.e., rank values scaled to the unit interval) of the assays values across samples (i.e., the rank-its of the spot quantifications for each autoantigen across all 10 samples)
 
-if(!file.exists("Fheatmap3.png")){
+if(!file.exists("docs/Fheatmap3.png")){
    nmf.options(grid.patch=TRUE)
-   
    RnkSmplW=matrix(nrow=70,ncol=12)
    RnkSmplW[,1]=IgG_raw$NSI[,1]
-   for(j in 2:12) RnkSmplW[,j]=IgG_raw$NSI[,j]
+   for(j in 2:12){ RnkSmplW[,j]=IgG_raw$NSI[,j]}
    
-   for(i in 1:70) RnkSmplW[i,]=rank(RnkSmplW[i,])/(13) #(row ranks)
+   for(i in 1:70) {RnkSmplW[i,]=rank(RnkSmplW[i,])/(13)} #(row ranks)
    colnames(RnkSmplW)=as.character((colData$Sample))
    rownames(RnkSmplW) <- rownames(IgG_raw$NSI)
    
@@ -348,15 +344,15 @@ if(!file.exists("Fheatmap3.png")){
 }
 library(pheatmap)
 
-tiff("fig3_.tiff", units="in", width=6, height=12.5, res=300)   
-pheatmap(RnkSmplW,annCol=factor(colData$Strain),main="Rank-it (Across Samples) Raw Signal IgG",dist="euclidean",hclust="ward.D")
-dev.off()
+#tiff("fig3_.tiff", units="in", width=6, height=12.5, res=300)   
+pheatmap(RnkSmplW, annCol=factor(colData$Strain), main="Rank-it (Across Samples) Raw Signal IgG", dist="euclidean", hclust="ward")
+#dev.off()
 ```
 
 #### Normalization First Stage ####
 ```{r}
 eps=.10
-tiff("fig4.tiff", units="in", width=6, height=8, res=300)  
+#tiff("fig4.tiff", units="in", width=6, height=8, res=300)  
 par(mfrow=c(4,3));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
 TriMn=RowTriMeans(IgG_raw$NSI)
 ResMat=(IgG_raw$NSI)-matrix(rep(TriMn,12),ncol=12)
@@ -371,7 +367,7 @@ for(j in 1:12){
    fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j])) #calculating the the quantile reggression fit, excluding the outliers
    abline(coef(fitj),col=clrs[j])
 }
-dev.off() ### here we are plotting the autoantigen rowmeans as a function of their residuals.
+#dev.off() ### here we are plotting the autoantigen rowmeans as a function of their residuals.
 ```
 
 # enable to background correct
@@ -392,6 +388,39 @@ TriMn=RowTriMeans(IgG_raw$X_norm_1) ### rowmeans
 ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
 SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
 
+#tiff("fig5_.tiff", units="in", width=7, height=6.5, res=300)  
+par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+plot(rep(TriMn,12),as.vector(ResMat),
+     xlim=quantile(TriMn,prob=c(0,.8)),
+     ylim=quantile(as.vector(ResMat),prob=c(0.05,.95)),
+     type="n",xlab="Raw Signal Tri-Mean",ylab="Raw Signal",
+     main="IgG Raw Signal")
+for(j in 1:12){
+   points(TriMn,ResMat[,j],cex=0.5,pch=pchs[j],col=clrs[j])
+   y=ResMat[,j]
+   x=TriMn
+   fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j]))
+   abline(coef(fitj),col=clrs[j])
+   IgG_raw$QregFits[j,]=coef(fitj)
+   prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+   IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-prdct #model fit
+}
+AAplotDens(IgG_raw,SampleIndices=1:12,clrs=clrs,useMat="norm",
+           xlims=NA,returnModes=T,main="Normalized IgG Spot Signal")
+legend(2000000,0.0006,lty=1,lwd=3,col=clrs[c(1,4,7,11)],legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1)
+
+plot(density((IgG_raw$QregFits[1,]),type="l"), main="(QregFits)", sub=" . ")
+for(j in 2:12) {
+   dens<-density((IgG_raw$QregFits[j,]))
+   lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+plot(density(log(IgG_raw$X_norm_1[,1]+max(IgG_raw$X_norm_1[,1]))-min(log(IgG_raw$X_norm_1[,1]))), main="(X_norm_1) ", sub=" . ",type="l")
+for(j in 2:12) {
+   dens<-density(log(IgG_raw$X_norm_1[,j]+max(IgG_raw$X_norm_1[,1]))-min(log(IgG_raw$X_norm_1[,1])))
+   lines(dens, cex=0.5,pch=pchs[j],col=clrs[j],cex.main=1)
+}
+legend(400000, 0.00005,lty=1,lwd=3,col=clrs[c(1,4,7,11)],pch=pchs[c(1,4,7,11)],legend=c(paste(rep("B",2),rep(c(8,28), each=1)), paste(rep("N",2),rep(c(8,24), each=1))),bty="n",ncol=1)
+#dev.off()
 ```
 
 
