@@ -398,13 +398,69 @@ for (i in 1:70){
 #summary(lm.first)$r.squared
 
 ```
+#### Deciding criteria for p-value correction
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+decide <- matrix(c("fdr",0.05,
+                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+# initialize:
+mysum <- as.list(1:nrow(decide))
+mynum <- 0
+maxmax <- 0
+for (test in 1:nrow(decide)){
+   results<-decideTests(fit.cont,
+                        adjust.method=decide[test,1],
+                        p=as.numeric(decide[test,2]))
+   summary(results) -> mysum[[test]]
+   mynum[test] <-length(which(apply(results,1,function(x)any(x,na.rm=T))))
+   maxmax <- max(c(maxmax, as.vector(mysum[[test]][c(1,3),])))
+}
+par(mfrow=c(1,nrow(decide)))
+for (test in 1:nrow(decide))
+{
+   as.numeric(as.vector(mysum[[test]][3,]))->plotMe1
+   as.numeric(as.vector(mysum[[test]][1,]))->plotMe2
+   maxData = max(plotMe1)
+   maxData2 = max(plotMe2)
+   barplot(plotMe1,horiz=T,col="red",xlim=c(-maxmax,maxmax),
+           main=paste("Gene Changes \np<",decide[test,2], ", " , decide[test,1],
+                      " (" ,mynum[test] ,")",sep=""))->yy
+   barplot(-plotMe2,horiz=T,col="green",add=T)->yy
+   xx<-vector("integer",ncol(mysum[[test]]))
+   text(xx,yy,colnames(mysum[[test]]))
+   text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
+   text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
+}
+```
+
+```{r}
+results <- decideTests(fit.cont,adjust.method="fdr", p=0.05)
+summary(results)
+
+write.fit(fit.cont,file="Serum_2021_IgG_DGE.csv",adjust="fdr",results=results, sep=',')
+fitObj <- read.csv("Serum_2021_IgG_DGE.csv", header=T, row.names = 1)
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+
+fitObjDE <-fitObj[DElist,]
+
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+
+fitObjres<- fitObj[which(fitObj$P.value.B28vN24 < 0.01 & abs(fitObj$Coef.B28vN24) > 0), ]
+fitObjres
+
+```
 
 ```{r}
 
 ```
 
+```{r}
 
-###### The normalized assay values are log transformed for purposes of variance stabilization and ease of visualization. Prior to the log transform, a constant is added to the normalized data such that all normalized assay values are greater than or equal to 1. 
+```
+
 
 ```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 deltaG=min(as.vector(IgG_raw$X_norm_1))
