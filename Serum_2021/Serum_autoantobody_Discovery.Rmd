@@ -326,10 +326,34 @@ dev.off()
 
 
 ```{r}
+#Heatmaps heatmaps using the uniform rank-its (i.e., rank values scaled to the unit interval) of the assays values across samples (i.e., the rank-its of the spot quantifications for each autoantigen across all 10 samples)
 
+if(!file.exists("Fheatmap3.png")){
+   nmf.options(grid.patch=TRUE)
+   
+   RnkSmplW=matrix(nrow=70,ncol=12)
+   RnkSmplW[,1]=IgG_raw$NSI[,1]
+   for(j in 2:12) RnkSmplW[,j]=IgG_raw$NSI[,j]
+   
+   for(i in 1:70) RnkSmplW[i,]=rank(RnkSmplW[i,])/(13) #(row ranks)
+   colnames(RnkSmplW)=as.character((colData$Sample))
+   rownames(RnkSmplW) <- rownames(IgG_raw$NSI)
+   
+   sink("mess.txt")
+   aheatmap(RnkSmplW,annCol=factor(colData$Strain),
+            main="Rank-it (Across Samples) Raw Signal IgG",
+            dist="euclidean",hclustfun="ward.D",
+            filename="Fheatmap3.png")
+   sink()
+}
+library(pheatmap)
+
+tiff("fig3_.tiff", units="in", width=6, height=12.5, res=300)   
+pheatmap(RnkSmplW,annCol=factor(colData$Strain),main="Rank-it (Across Samples) Raw Signal IgG",dist="euclidean",hclust="ward.D")
+dev.off()
 ```
 
-
+#### Normalization First Stage ####
 ```{r}
 
 ```
