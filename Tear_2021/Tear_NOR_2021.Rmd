@@ -57,8 +57,8 @@ library(ggplot2)
 
 #### Loading Raw datasets and creating meta-data df
 ```{r}
-IgG_NSI <- read.csv("../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
-IgG_SNR <- read.csv("../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_NSI <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_SNR <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 IgG_NSI <- IgG_NSI[which(IgG_SNR$med>3),]
@@ -79,19 +79,86 @@ colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
 
 ```
 
-
+#### Raw Data Visualizations
 ```{r}
+clrs=c(rep(pal_jco("default")(4)[1:2], each=3), rep(pal_jco("default")(4)[3], each=6), rep(pal_jco("default")(4)[4], each=3))
+pchs=c(rep(2,3),rep(4,3), rep(5,6), rep(8,3))
 
+#Centering and Scaling Differences Across Features
+# Tukey Tri-mean for location
+TriMnG=RowTriMeans(IgG_raw$NSI) # 99 elements (same as num of rows in NSI)
+# Biweight midvariance for spread
+bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw)) # 99 elements
+
+```
+
+## Normalization
+### First Stage with visualizations
+```{r}
+#enable to background correct
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR ##NSI changed permanently
+IgG_raw$X_norm_1=IgG_raw$NSI
+eps=.10
+IgG_raw$QregFits=array(NA,dim=c(99,2))
+TriMn=RowTriMeans(IgG_raw$X_norm_1) #new NSI Tukey tri mean
+ResMat=c(IgG_raw$X_norm_1,IgG_raw$X_norm_1)-matrix(rep(TriMn,30),ncol=30) #New_NSI - NewNSI_TriMn 
+SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
+
+par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+plot(rep(TriMn,30),as.vector(ResMat),
+     xlim=quantile(TriMn,prob=c(0,.8)),
+     ylim=quantile(as.vector(ResMat),prob=c(0.05,.95)),
+     type="n",xlab="Raw Signal Tri-Mean",ylab="Raw Signal",
+     main="IgG Raw Signal")
+for(j in 1:15){
+   points(TriMn,ResMat[,j],cex=0.5,pch=pchs[j],col=clrs[j])
+   points(TriMn,ResMat[,15+j],cex=0.5,pch=pchs[j],col=clrs[j])
+   y=c(ResMat[,j], ResMat[,15+j])
+   x=c(TriMn, TriMn)
+   fitj <- rq(y ~ x, tau = .5,subset=which(c(SubMat[,j], SubMat[,15+j])))
+   abline(coef(fitj),col=clrs[j])
+   IgG_raw$QregFits[j,]=coef(fitj)
+   prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+   IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-prdct
+} ###substracting the model fit straight line from the data
+#Xnorm_1 here is the residual value
 ```
 
 
 ```{r}
+eps=0.10
+q.eps=0.10
+lambda=.10 # incremental change
+nitr=75 # number of iterations -> this should help us optimize the lambda for best fit
+sad=rep(0,nitr) # sum of absolute deviations
+# re-init
+IgG_raw$X_1step_norm_1=IgG_raw$X_norm_1 #calculated in the last loop
+IgG_raw$X_norm_1=IgG_raw$NSI #reinitializing
 
-```
-
-
-```{r}
-
+for(i in 1:nitr){
+   # snoop and grab invariants
+   X=IgG_raw$X_norm_1
+   iWRS=function(i) t.test(X[i,c(1:3,7:12)],X[i,c(4:5,13:15)])$p.value
+   qMat=matrix(rep(mapply(iWRS,1:99),30),ncol=30)
+   qMat[which(is.na(qMat[,1])==T),] <- 0 #all NANs replaced by 0
+   qcut=quantile(qMat[,1],prob=q.eps)
+   
+   TriMn=RowTriMeans(IgG_raw$X_norm_1)
+   ResMat=c(IgG_raw$X_norm_1,IgG_raw$X_norm_1)-matrix(rep(TriMn,30),ncol=30)
+   SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps) #all residuals with absolute values less than the cutoff of 90%
+   SubMat[qMat<qcut]=FALSE #which p values are greater than the cutoffs
+   for(j in 1:15){
+      y=c(ResMat[,j], ResMat[,15+j])
+      x=c(TriMn, TriMn)
+      fitj <- rq(y ~ x, tau = .5,subset=which(c(SubMat[,j], SubMat[,15+j])))
+      prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+      IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-lambda*prdct
+      sad[i]=sad[i]+sum(abs(2*lambda*prdct))
+   }###substracting the model fit straight line from the data
+   #print(sad)
+   #print(qcut)
+}
 ```
 
 
