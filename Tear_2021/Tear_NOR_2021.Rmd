@@ -6,8 +6,11 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 library(car)
 library(lsmeans)
 library(calibrate)
@@ -33,4 +36,101 @@ library(Biobase)
 library(marray)
 library(limma)
 library(gplots)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+#devtools::install_github('renozao/NMF@devel')
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
 ```
+
+#### Loading Raw datasets and creating meta-data df
+```{r}
+IgG_NSI <- read.csv("../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_SNR <- read.csv("../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_SNR$average <- rowMeans(IgG_SNR)
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
+IgG_NSI <- IgG_NSI[which(IgG_SNR$med>3),]
+IgG_SNR <- IgG_SNR[which(IgG_SNR$med>3),]
+IgG_raw=list()
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$SNR <- as.matrix(IgG_SNR)[,1:15]
+
+Strain <- c(rep(c("NOR", "BALBc"), each=3), rep(c("NOR"), each=6), rep(c("BALBc"), each=3))
+Biofluid <- c(rep("Tears",6), rep("Serum", 9))
+colData <- as.data.frame(cbind(c(colnames(IgG_NSI)), Strain, Biofluid))
+colnames(colData) <- c('Sample', "Strain", "Biofluid")
+rownames(colData) <- colData$Sample
+
+colData$Strain <- factor(colData$Strain)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
