@@ -56,7 +56,7 @@ library(ggplot2)
 ```
 
 #### Loading Raw datasets and creating meta-data df
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 IgG_NSI <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
 IgG_SNR <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
 IgG_SNR$average <- rowMeans(IgG_SNR)
@@ -80,7 +80,7 @@ colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
 ```
 
 #### Raw Data Visualizations
-```{r}
+```{r Centering and Scaling Data, message=FALSE, warning=FALSE, paged.print=FALSE}
 clrs=c(rep(pal_jco("default")(4)[1:2], each=3), rep(pal_jco("default")(4)[3], each=6), rep(pal_jco("default")(4)[4], each=3))
 pchs=c(rep(2,3),rep(4,3), rep(5,6), rep(8,3))
 
@@ -94,7 +94,7 @@ bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw)) # 99 elements
 
 ## Normalization
 ### First Stage with visualizations
-```{r}
+```{r Normalization - I, message=FALSE, warning=FALSE, paged.print=FALSE}
 #enable to background correct
 IgG_raw$NSI <- as.matrix(IgG_NSI)
 IgG_raw$NSI=IgG_raw$NSI*IgG_raw$SNR ##NSI changed permanently
@@ -126,7 +126,7 @@ for(j in 1:15){
 ```
 
 
-```{r}
+```{r Normalization -I continued, message=FALSE, warning=FALSE, paged.print=FALSE}
 eps=0.10
 q.eps=0.10
 lambda=.10 # incremental change
@@ -159,14 +159,14 @@ for(i in 1:nitr){
    #print(sad)
    #print(qcut)
 }
-
+par(mfrow(1,2))
 plot(1:nitr,sad,main="iterative adj IgG")
 smoothScatter(IgG_raw$X_1step_norm_1,IgG_raw$X_norm_1, nbin = 500)
 abline(0,1,col="steelblue")
 ```
 
 ### Normalization Second Stage ########
-```{r}
+```{r Normalization Stage II, message=FALSE, warning=FALSE, paged.print=FALSE}
 deltaG=min(as.vector(IgG_raw$X_norm_1))
 IgG_raw$W_1=log(IgG_raw$X_norm_1-deltaG+1)
 # get resids..
