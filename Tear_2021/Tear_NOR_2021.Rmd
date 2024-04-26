@@ -1,0 +1,36 @@
+---
+title: "Tear and Serum IgG Autoantibodies - NOR mice"
+author: "ShrutiSinghKakan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+library(PCAtools)
+library(tidyverse)
+library(Biobase)
+library(marray)
+library(limma)
+library(gplots)
+```
