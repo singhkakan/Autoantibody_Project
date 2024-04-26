@@ -187,7 +187,7 @@ IgG_raw$W_1=RW_MAT+W_1
 ```
 
 #### Density Plot of Normalized Data ####
-```{r}
+```{r Density Plot after Normalization, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 plot(density(log2(IgG_raw$W_1[,1]-min(IgG_raw$W_1))-6.66), main="(logW_1) ", sub=" . ", type="l")
 for(j in 2:15) {
@@ -198,8 +198,18 @@ for(j in 2:15) {
 ```
 
 
-```{r}
+#### Heatmap of Normalized Data ####
+```{r Heatmap, fig.height=12, fig.width=9, message=FALSE, warning=FALSE, paged.print=FALSE}
+RnkSmplW_1=matrix(nrow=99,ncol=15)
+RnkSmplW_1[,1]=IgG_raw$W_1[,1]
+for(j in 2:15) RnkSmplW_1[,j]=IgG_raw$W_1[,j]
+for(i in 1:99) RnkSmplW_1[i,]=rank(RnkSmplW_1[i,])/(15)
+colnames(RnkSmplW_1)=as.character((colData$Sample))
+rownames(RnkSmplW_1) <- rownames(IgG_raw$W_1)
 
+#tiff("fig8.tiff", units="in", width=6, height=14, res=500)   
+pheatmap(RnkSmplW_1,annCol=factor(colData$Strain),main="Rank-it (Across Samples) Normalized Signal IgG",dist="euclidean",hclust="ward", cutree_rows = 6, cutree_cols = 3)
+#dev.off()
 ```
 
 
