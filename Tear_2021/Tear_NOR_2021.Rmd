@@ -390,9 +390,61 @@ for (i in 1:3) {
 
 ```
 
-
+##### Code for Boxplots of tears hits ####
 ```{r}
+fitObjres<- fitObj[which(fitObj$P.value.NTvsBT < 0.05 & (fitObj$Coef.NTvsBT) > 0), ] 
+mydata <- as.matrix(IgG_raw$W_1)[1:99,]
+hits <- rownames(fitObjres)
+Z=matrix(nrow=11,ncol=15)
+for (i in 1:11) {
+   Z[i,] <- mydata[hits[i],]
+}
+rownames(Z) <- hits
+colnames(Z) <- colData$Sample
+Z <- as.data.frame(t(Z))
+Z$Strain <- colData$Strain
+Z$Biofluid <- colData$Biofluid
+hits <- colnames(Z)[1:11]
+Z_Tear <- Z[which(Z$Biofluid=="Tears"),]
 
+colnames(Z_Tear)[9] <- "La SSB"
+hits <- colnames(Z_Tear)[1:11]
+
+for (i in 1:11){
+   setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/")
+   filename <- paste(hits[i],"_T_IgG_norm.tiff", sep="")
+   p<- ggplot(Z_Tear, aes(x=Strain, y=log10(2^Z_Tear[,i]), fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.35, coef=1, varwidth=F, show.legend = T, size=0.75) +
+      geom_jitter(color = "darkgray", alpha =0.7, size=2.1, show.legend = F, position=position_jitterdodge(0.55))+
+      scale_color_manual(values=c("black", "navy")) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Norm Intensity")  + 
+      labs(title=colnames(Z_Tear[i]), hjust=0.5) +
+      #ylim(7, 59) +
+      #scale_x_discrete("Biofluid", labels=c("Tear", "Serum")) +
+      scale_fill_jco() #+
+   #scale_y_continuous(label=scientific_10)
+   #tiff(filename, units="in", width=2.8, height=2.9, res=300)
+   print(p)
+   #dev.off()
+}
+
+#facetted plot
+library(tidyr)
+Z_Ter_facet <- gather(Z_Tear, key="Autoantigen", value = "Norm_Intensity", 1:11)
+Z_Ter_facet$Autoantigen <- factor(Z_Ter_facet$Autoantigen)
+for (i in 1:3) {
+   ggplot(Z_Ter_facet, aes(x=Strain, y=log10(2^Norm_Intensity), fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.35, coef=1, varwidth=F, show.legend = T, size=0.75) +
+      geom_jitter(color = "darkgray", alpha =0.7, size=2.1, show.legend = F, position=position_jitterdodge(0.55))+
+      scale_color_manual(values=c("black", "navy")) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Norm Intensity")  + ylim(2,15.5) +
+   facet_wrap(facets=Z_Ter_facet$Autoantigen, nrow=3, ncol=4, scales="free") +
+      scale_fill_jco()
+}
 ```
 
 
