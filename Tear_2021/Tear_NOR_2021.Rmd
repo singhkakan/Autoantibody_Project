@@ -144,7 +144,6 @@ for(i in 1:nitr){
    qMat=matrix(rep(mapply(iWRS,1:99),30),ncol=30)
    qMat[which(is.na(qMat[,1])==T),] <- 0 #all NANs replaced by 0
    qcut=quantile(qMat[,1],prob=q.eps)
-   
    TriMn=RowTriMeans(IgG_raw$X_norm_1)
    ResMat=c(IgG_raw$X_norm_1,IgG_raw$X_norm_1)-matrix(rep(TriMn,30),ncol=30)
    SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps) #all residuals with absolute values less than the cutoff of 90%
@@ -166,7 +165,7 @@ smoothScatter(IgG_raw$X_1step_norm_1,IgG_raw$X_norm_1, nbin = 500)
 abline(0,1,col="steelblue")
 ```
 
-### Normalization Second Stage ########
+### Normalization Second Stage ###
 ```{r Normalization Stage II, message=FALSE, warning=FALSE, paged.print=FALSE}
 deltaG=min(as.vector(IgG_raw$X_norm_1))
 IgG_raw$W_1=log(IgG_raw$X_norm_1-deltaG+1)
@@ -294,8 +293,84 @@ for (test in 1:nrow(decide))
 
 ```
 
+#### DE Analysis ####
+```{r}
+results<-decideTests(fit.cont,adjust.method="none", p=0.01)
+summary(results)
+write.fit(fit.cont,file="../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv", header=T, row.names = 1)
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+fitObjDE <-fitObj[DElist,]
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+```
+
+###### Serum boxplot #####
+
+```{r}
+chart_design <- theme(
+   plot.title = element_text(color = "Black", size = 17, face = "bold", margin = margin(b=25), hjust=0.4),
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_blank(),
+   legend.title = element_blank(),
+   legend.position = "",
+   axis.title.y = element_text(size=15, margin = margin(r = 5)),
+   strip.text.x = element_text(size =17, margin = margin(b=25), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.05 & abs(fitObj$Coef.NSvBS) > 0.5), ]#Serum
+mydata <- as.matrix(IgG_raw$W_1)[1:99,]
+hits <- rownames(fitObjres)
+hits
+
+Y=matrix(nrow=24,ncol=15)
+for (i in 1:24) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample
+
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain
+Y$Biofluid <- colData$Biofluid
+hits <- colnames(Y)[1:24]
+Y_Ser <- Y[which(Y$Biofluid=="Serum"),]
+
+colnames(Y_Ser)[10] <- "La SSB"
+colnames(Y_Ser)[18] <- "PM Scl100"
+colnames(Y_Ser)[20] <- "Sm RNP"
+colnames(Y_Ser)[22] <- "TNF alpha"
+colnames(Y_Ser)[23] <- "U1-snRNP 68 70"
+hits <- colnames(Y_Ser)[1:24]
+```
+
 
 ```{r}
 
 ```
 
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
