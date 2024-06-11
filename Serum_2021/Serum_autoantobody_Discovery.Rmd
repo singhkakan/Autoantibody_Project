@@ -485,14 +485,14 @@ Y$Strain <- colData$Strain
 Y$Age <- colData$Age
 Y$Group <- colData$Group
 
-hits <- colnames(Y)[1:13]
+hits <- colnames(Y)[1:26]
 colnames(Y)[8] <- "KU (P70/P80)"
 colnames(Y)[9] <- "La/SSB"
 colnames(Y)[17] <- "PM/Scl-100"
 colnames(Y)[19] <- "RPP P2"
 colnames(Y)[20] <- "RPP P0"
 
-par(mfrow=c(2,5))
+par(mfrow=c(4,6))
 for (i in 1:26){
    filename <- paste(hits[i], ".IgG.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Age)) +
