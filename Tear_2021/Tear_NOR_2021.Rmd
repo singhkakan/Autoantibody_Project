@@ -377,7 +377,7 @@ summary(fit)
 
 
 ```{r}
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
+
 cont.matrix<- makeContrasts(
    NTvsBT =  NOR.Tears - BALBc.Tears,
    NSvBS = NOR.Serum - BALBc.Serum,
@@ -389,16 +389,11 @@ fit.cont<- eBayes(fit.cont)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,cex=1)
 abline(0,2)
 topTable(fit.cont,number=23,adjust="BH")
-<<<<<<< HEAD
 
 ```
 
-#R-Squared ....... Checking goodness of fit
-=======
-```
 
 #### R-Squared ....... goodness of fit
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 ```{r}
 for (i in 1:99){
    sst <- rowSums(mydata^2)
@@ -406,28 +401,17 @@ for (i in 1:99){
    Rsq<- (ssr/sst)
 }
 plot(1:99, Rsq)
-<<<<<<< HEAD
-which(Rsq<0.7)
-=======
-which(Rsq<0.5)
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 
+which(Rsq<0.7)
+
+which(Rsq<0.5)
 summary(fit.cont$r.squared)
 ```
 
-<<<<<<< HEAD
-#Deciding 
-```{r}
-
-decide <- matrix(c("fdr",0.05,
-                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
-=======
 #### Determining which tests to use ####
 ```{r}
-decide <- matrix(c("fdr",0.05,
-                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+decide <- matrix(c("fdr",0.05,"fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
 
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 # initialize:
 mysum <- as.list(1:nrow(decide))
 mynum <- 0
@@ -456,51 +440,41 @@ for (test in 1:nrow(decide))
    text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
    text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
 }
-<<<<<<< HEAD
 ```
 
 #Generate outputs for IgG Datasets
 ```{r}
 
-results<-decideTests(fit.cont,adjust.method="none", p=0.01)
+results <- decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
 write.fit(fit.cont,file="~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_DGE_W1_results.csv",adjust="none",results=results, sep=',')
-fitObj <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_DGE_W1.csv", header=T, row.names = 1)
-=======
+fitObj <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_DGE_W1_results.csv", header=T, row.names = 1)
 
 ```
 
-#### DE Analysis ####
+####  ####
 ```{r}
-results<-decideTests(fit.cont,adjust.method="none", p=0.01)
-summary(results)
-write.fit(fit.cont,file="../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv",adjust="none",results=results, sep=',')
-fitObj <- read.csv("../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv", header=T, row.names = 1)
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 
 myNames<-names(fitObj)
 res.col<- which(regexpr("Res.",myNames)>0)
 DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
 length(DElist)
-<<<<<<< HEAD
 
-=======
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
-fitObjDE <-fitObj[DElist,]
+fitObjDE <- fitObj[DElist,]
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 ```
 
-<<<<<<< HEAD
-#Generating Boxplots for Serum hits
+
+#Identifying Serum hits for Serum hits
 ```{r}
-fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.05 & abs(fitObj$Coef.NSvBS) > 0.5), ]#Serum
+fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.05 & abs(fitObj$Coef.NSvBS) > 0.5), ] 
 mydata <- as.matrix(IgG_raw$W_1)[1:99,]
 hits <- rownames(fitObjres)
-=======
-###### Serum boxplot #####
 
+```
+
+######Serum boxplots #####
 ```{r}
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 chart_design <- theme(
    plot.title = element_text(color = "Black", size = 17, face = "bold", margin = margin(b=25), hjust=0.4),
    axis.text.x = element_text(size=15),
@@ -514,56 +488,38 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-<<<<<<< HEAD
 Y=matrix(nrow=length(hits),ncol=15)
 for (i in 1:length(hits)) {
    Y[i,] <- mydata[hits[i],]
 }
-
-=======
-fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.025 & (fitObj$Coef.NSvBS) > 0.5), ]#Serum
-mydata <- as.matrix(IgG_raw$W_1)[1:99,]
-hits <- rownames(fitObjres)
 hits
-
-Y=matrix(nrow=18,ncol=15)
-for (i in 1:18) {
-   Y[i,] <- mydata[hits[i],]
-}
->>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
 rownames(Y) <- hits
 colnames(Y) <- colData$Sample
 
 Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
 Y$Biofluid <- colData$Biofluid
-<<<<<<< HEAD
-hits <- colnames(Y)[1:29]
+
 Y_Ser <- Y[which(Y$Biofluid=="Serum"),]
 
+colnames(Y_Ser)[3] <- "C3"
+colnames(Y_Ser)[4] <- "C4"
+colnames(Y_Ser)[5] <- "C5"
+colnames(Y_Ser)[7] <- "DNA POLB"
+colnames(Y_Ser)[9] <- "IF"
 colnames(Y_Ser)[10] <- "La SSB"
-colnames(Y_Ser)[18] <- "PM Scl100"
+colnames(Y_Ser)[14] <- "MBP"
+colnames(Y_Ser)[18] <- "PM Scl-100"
+colnames(Y_Ser)[19] <- "RPP P0"
 colnames(Y_Ser)[20] <- "Sm RNP"
 colnames(Y_Ser)[22] <- "TNF alpha"
-colnames(Y_Ser)[23] <- "U1-snRNP 68 70"
+colnames(Y_Ser)[23] <- "U1snRNP 68 70"
 
+hits <- colnames(Y_Ser)[1:24]
 
-
-=======
-hits <- colnames(Y)[1:18]
-Y_Ser <- Y[which(Y$Biofluid=="Serum"),]
-colnames(Y_Ser)[6] <- "DNA POLB"
-colnames(Y_Ser)[8] <- "La SSB"
-colnames(Y_Ser)[13] <- "PM Scl100"
-colnames(Y_Ser)[14] <- "RPP0"
-colnames(Y_Ser)[15] <- "Sm RNP"
-colnames(Y_Ser)[17] <- "TNF alpha"
-colnames(Y_Ser)[18] <- "U1snRNP 68 70"
-hits <- colnames(Y_Ser)[1:18]
-
-for (i in 1:18){
+for (i in 1:24){
    setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/")
-   filename <- paste(hits[i],"S_IgG_norm.tiff", sep="")
+   filename <- paste(hits[i],"__Serum_IgG.tiff", sep="")
    p<- ggplot(Y_Ser, aes(x=Strain, y=log10(2^Y_Ser[,i]), fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.35, coef=1, varwidth=F, show.legend = T, size=0.75) +
       geom_jitter(color = "darkgray", alpha =0.7, size=2.1, show.legend = F, position=position_jitterdodge(0.55))+
@@ -573,13 +529,16 @@ for (i in 1:18){
       ylab("Log Norm Intensity")  + 
       labs(title=colnames(Y_Ser[i]), hjust=0.5) +
       #scale_x_discrete("Biofluid", labels=c("Tear", "Serum")) +
-      scale_fill_jco() #+
+      scale_fill_jco() #+ ylim(5.5,28)
       #scale_y_continuous(label=scientific_10)
-   #tiff(filename, units="in", width=3, height=3, res=300)
+   tiff(filename, units="in", width=2.35, height=3.2, res=300)
    print(p)
-   #dev.off()
+   dev.off()
 }
+```
 
+##### Boxplots facetted
+```{r}
 #facetted plot
 library(tidyr)
 Y_Ser_facet <- gather(Y_Ser, key="Autoantigen", value = "Norm_Intensity", 1:18)
@@ -598,8 +557,11 @@ for (i in 1:3) {
       scale_fill_jco()
 }
 
-
 ```
+
+
+
+
 
 ##### Code for Boxplots of tears hits ####
 ```{r}
