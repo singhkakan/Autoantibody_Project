@@ -71,8 +71,8 @@ knitr::opts_chunk$set(
 )
 
 setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
-IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:81,]
-IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:81,]
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:80,]
+IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
 Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
 
 ```
@@ -81,7 +81,7 @@ Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
 #Adding Auto-antigen id names 
 ```{r Adding Auto-antigen id names }
 #Adding Auto-antigen id names 
-Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:81,1:2]
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
 
 #colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
 #colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
@@ -97,39 +97,79 @@ IgA_SNR <- IgA_SNR[,-c(1, 17)]
 
 ```
 
+
+```{r}
+####Setting up column metadata
+
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+
+colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain))
+colnames(colData) <- c('Sample', "Strain")
+rownames(colData) <- colData$Sample
+colData$Strain <- factor(colData$Strain)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+#Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
+
+#colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+
+```
+
+
 #### Filtering Data based on low Signal to Noise ratio
 ```{r Filtering rows with SNR<3}
+IgA_raw=list()
 IgA_SNR$average <- rowMeans(IgA_SNR)
 IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
-IgA_NSI <- IgA_NSI[which(IgA_SNR$med>3),]
-IgA_SNR <- IgA_SNR[which(IgA_SNR$med>3),]
-IgA_raw=list()
-IgA_raw$NSI <- as.matrix(IgA_NSI)
-IgA_raw$SNR <- as.matrix(IgA_SNR)[,1:15]
+
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2.8),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2.8),])[,1:15]
+
+```
+
+#### Visualizing Filtered Data ####
+```{r}
+dataN <- log2(IgA_NSI * IgA_SNR[,1:15] + 0.5) 
+countData = as.data.frame(dataN)
+
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Samples)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + #xlim(-1.5,6) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+
+
+
+```
+
+
+```{r}
+boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
+
+dataN <- (IgA_NSI * IgA_SNR[,1:15] ) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI*SNR")
+
+
+dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI*SNR")
 
 ```
 
 ```{r}
 
-####Setting up column metadata
-Strain <- c(rep("NOD", each=5), rep("BALBc", each=6), rep("NOD", each=5), rep("BALBc", each=6))
-Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
+```
 
-colData <- as.data.frame(cbind(c(colnames(data)), Strain, Biofluid))
-colnames(colData) <- c('Sample', "Strain", "Biofluid")
-rownames(colData) <- colData$Sample
+```{r}
 
-colData$Strain <- factor(colData$Strain)
-colData$Biofluid <- factor(colData$Biofluid, levels = c("Tear", "Serum"))
+```
 
-colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
-colnames(colData) <- c('Sample', "Strain", "Biofluid")
-rownames(colData) <- colData$Sample
+```{r}
 
-colData$Strain <- factor(colData$Strain, 
-                         levels = c("BALB/c", "NOR"), 
-                         labels = c("BALBc", "NOR"))
-colData$Strain <- relevel(colData$Strain, ref = "BALBc")
-colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
 ```
 
