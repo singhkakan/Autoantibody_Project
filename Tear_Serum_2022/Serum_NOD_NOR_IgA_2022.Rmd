@@ -1,0 +1,147 @@
+---
+title: "Serum_IgA_2022"
+author: "Shruti Kakan"
+date: "2024-06-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Loading Libraries ####
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+#library(PCAtools)
+library(tidyverse)
+library(Biobase)
+#library(marray)
+library(limma)
+library(gplots)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+#devtools::install_github('renozao/NMF@devel')
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+#library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
+
+```
+
+# IgA Analysis ##########
+#______________________________________________________________
+
+```{r Reading in Raw Serum Data}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_NSI_norm_Serum.csv",  header=T)[1:80,]
+IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_SNR_Serum.csv",  header=T)[1:80,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
+
+```
+
+#Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names }
+#Adding Auto-antigen id names 
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
+
+#colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
+#colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
+
+Antigen_ID[68,"ID"] <- IgA_NSI[68,"ID"]
+IgA_NSI <- full_join(IgA_NSI, Antigen_ID, by="ID")
+IgA_SNR <- full_join(IgA_SNR, Antigen_ID, by="ID")
+rownames(IgA_NSI) <- IgA_NSI$Antigen_ID
+rownames(IgA_SNR) <- IgA_SNR$Antigen_ID
+
+IgA_NSI <- IgA_NSI[,-c(1, 17)]
+IgA_SNR <- IgA_SNR[,-c(1, 17)]
+
+```
+
+
+```{r}
+####Setting up column metadata
+
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALB/c", each=6))
+
+colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain))
+colnames(colData) <- c('Sample', "Strain")
+rownames(colData) <- colData$Sample
+colData$Strain <- factor(colData$Strain)
+#colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+#Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
+#colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+```
+
+#### Filtering Data based on low Signal to Noise ratio
+```{r Filtering rows with SNR<3}
+IgA_raw=list()
+IgA_SNR$average <- rowMeans(IgA_SNR)
+IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
+
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2.8),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2.8),])[,1:15]
+```
+
+#### Visualizing Filtered Data ####
+```{r}
+dataN <- log2(IgA_NSI * IgA_SNR[,1:15] + 0.5) 
+countData = as.data.frame(dataN)
+
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Samples)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + #xlim(-1.5,6) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+```
+
+NOD M1 Serum appears to be the most variable
+
