@@ -11,7 +11,7 @@ knitr::opts_chunk$set(
 	echo = TRUE,
 	message = FALSE,
 	warning = FALSE,
-	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/'
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
 )
 
 library(car)
@@ -62,19 +62,74 @@ library(ggplot2)
 # IgA Analysis ##########
 #______________________________________________________________
 
-```{r}
+```{r Reading in Raw Tear Data}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:81,]
+IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:81,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
+
+```
+
+
+#Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names }
+#Adding Auto-antigen id names 
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:81,1:2]
+
+#colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
+#colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
+
+Antigen_ID[68,"ID"] <- IgA_NSI[68,"ID"]
+IgA_NSI <- full_join(IgA_NSI, Antigen_ID, by="ID")
+IgA_SNR <- full_join(IgA_SNR, Antigen_ID, by="ID")
+rownames(IgA_NSI) <- IgA_NSI$Antigen_ID
+rownames(IgA_SNR) <- IgA_SNR$Antigen_ID
+
+IgA_NSI <- IgA_NSI[,-c(1, 17)]
+IgA_SNR <- IgA_SNR[,-c(1, 17)]
+
+```
+
+#### Filtering Data based on low Signal to Noise ratio
+```{r Filtering rows with SNR<3}
+IgA_SNR$average <- rowMeans(IgA_SNR)
+IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
+IgA_NSI <- IgA_NSI[which(IgA_SNR$med>3),]
+IgA_SNR <- IgA_SNR[which(IgA_SNR$med>3),]
+IgA_raw=list()
+IgA_raw$NSI <- as.matrix(IgA_NSI)
+IgA_raw$SNR <- as.matrix(IgA_SNR)[,1:15]
 
 ```
 
 ```{r}
 
-```
+####Setting up column metadata
+Strain <- c(rep("NOD", each=5), rep("BALBc", each=6), rep("NOD", each=5), rep("BALBc", each=6))
+Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
 
-```{r}
+colData <- as.data.frame(cbind(c(colnames(data)), Strain, Biofluid))
+colnames(colData) <- c('Sample', "Strain", "Biofluid")
+rownames(colData) <- colData$Sample
 
-```
+colData$Strain <- factor(colData$Strain)
+colData$Biofluid <- factor(colData$Biofluid, levels = c("Tear", "Serum"))
 
-```{r}
+colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+colnames(colData) <- c('Sample', "Strain", "Biofluid")
+rownames(colData) <- colData$Sample
 
+colData$Strain <- factor(colData$Strain, 
+                         levels = c("BALB/c", "NOR"), 
+                         labels = c("BALBc", "NOR"))
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
 ```
 
