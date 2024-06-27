@@ -107,7 +107,7 @@ colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain))
 colnames(colData) <- c('Sample', "Strain")
 rownames(colData) <- colData$Sample
 colData$Strain <- factor(colData$Strain)
-colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+#colData$Strain <- relevel(colData$Strain, ref = "BALBc")
 #Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
 
 #colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
@@ -157,19 +157,150 @@ boxplot(as.data.frame((dataN)),main="NSI*SNR")
 
 dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="NSI*SNR")
+boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
+
+
+dataN <- log2(IgA_raw$NSI + 0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI")
 
 ```
 
+#Limma Based Quantile Normalization
 ```{r}
+library(limma)
+dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+mydata <- as.matrix(dataN[,-c(7,15)])
+
+conditions<- paste(colData$Strain[-c(7,15)],sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+
+cont.matrix<- makeContrasts(
+   NTvBT =  NOD - BALBc,
+   nTvBT = NOR - BALBc,
+   levels = design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+
+plot.new()
+plotMD(fit.cont, col=2)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+
 
 ```
 
-```{r}
 
+#### After Removing outliers
+```{r}
+#After removing outlier samples
+
+###### Voom normalization with quantiles
+conditions<- paste(colData$Strain,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+
+v <- voom(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5), design, plot=TRUE, normalize="quantile")
+#v <- voom(dae, design, plot=TRUE)
+fit <- lmFit(v, design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+topTable(fit.cont)
+#topTable(fit, coef=ncol(design))
+
+plotMDS(v,col=as.numeric(Strain))
+plot.new()
+plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+
+#Density plots
+
+dae <- DGEList(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5))
+keep <- filterByExpr(dae, design)
+dae <- dae[keep,,keep.lib.sizes=FALSE]
+dae <- calcNormFactors(dae)
+logCPM <- cpm(dae, log=TRUE, prior.count=2)
+
+df_dseq = melt(v$E, variable.name = "Samples", value.name = "count")# reshape the matrix 
+df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
+mycolors <- colorRampPalette(brewer.pal(8,"Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Var2)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + xlim(-5, 25) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+
+#R-Squared ....... goodness of fit
+for (i in 1:68){
+   sst <- rowSums(v$E^2)
+   ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
+   Rsq<- (ssr/sst)
+}
+plot(1:68, Rsq)
+which(Rsq<0.90)
+
+summary(fit.cont$r.squared)
+```
+
+The BALB/c sample 6 could be removed
+
+
+```{r}
+decide <- matrix(c("fdr",0.05,
+                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+# initialize:
+mysum <- as.list(1:nrow(decide))
+mynum <- 0
+maxmax <- 0
+for (test in 1:nrow(decide)){
+   results<-decideTests(fit.cont,
+                        adjust.method=decide[test,1],
+                        p=as.numeric(decide[test,2]))
+   summary(results) -> mysum[[test]]
+   mynum[test] <-length(which(apply(results,1,function(x)any(x,na.rm=T))))
+   maxmax <- max(c(maxmax, as.vector(mysum[[test]][c(1,3),])))
+}
+par(mfrow=c(1,nrow(decide)))
+for (test in 1:nrow(decide))
+{
+   as.numeric(as.vector(mysum[[test]][3,]))->plotMe1
+   as.numeric(as.vector(mysum[[test]][1,]))->plotMe2
+   maxData = max(plotMe1)
+   maxData2 = max(plotMe2)
+   barplot(plotMe1,horiz=T,col="red",xlim=c(-maxmax,maxmax),
+           main=paste("Gene Changes \np<",decide[test,2], ", " , decide[test,1],
+                      " (" ,mynum[test] ,")",sep=""))->yy
+   barplot(-plotMe2,horiz=T,col="green",add=T)->yy
+   xx<-vector("integer",ncol(mysum[[test]]))
+   text(xx,yy,colnames(mysum[[test]]))
+   text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
+   text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
+}
 ```
 
 ```{r}
+results<-decideTests(fit.cont,adjust.method="none", p=0.005)
+summary(results)
 
+write.fit(fit.cont,file="IgA_DGE.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgA_DGE.csv", header=T, row.names = 1)
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+
+fitObjDE <-fitObj[DElist,]
+
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+
+mydata <- as.matrix(v$E)
 ```
 
