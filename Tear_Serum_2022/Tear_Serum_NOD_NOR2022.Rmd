@@ -121,8 +121,8 @@ IgA_raw=list()
 IgA_SNR$average <- rowMeans(IgA_SNR)
 IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
 
-IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2.8),])
-IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2.8),])[,1:15]
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>1.8),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>1.8),])[,1:15]
 
 ```
 
@@ -170,9 +170,9 @@ boxplot(as.data.frame((dataN)),main="NSI")
 ```{r}
 library(limma)
 dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
-mydata <- as.matrix(dataN[,-c(7,15)])
+mydata <- as.matrix(dataN)
 
-conditions<- paste(colData$Strain[-c(7,15)],sep=".")
+conditions<- paste(colData$Strain,sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
@@ -193,7 +193,7 @@ qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 ```
 
 
-#### After Removing outliers
+#### Voom Normalization After Removing outliers
 ```{r}
 #After removing outlier samples
 
@@ -238,12 +238,12 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
    guides(fill="none")
 
 #R-Squared ....... goodness of fit
-for (i in 1:68){
+for (i in 1:71){
    sst <- rowSums(v$E^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
-plot(1:68, Rsq)
+plot(1:71, Rsq)
 which(Rsq<0.90)
 
 summary(fit.cont$r.squared)
@@ -251,7 +251,7 @@ summary(fit.cont$r.squared)
 
 The BALB/c sample 6 could be removed
 
-
+###Determining DE genes
 ```{r}
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
@@ -284,13 +284,13 @@ for (test in 1:nrow(decide))
    text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
 }
 ```
-
+#### DE Analysis using voom normalized counts
 ```{r}
 results<-decideTests(fit.cont,adjust.method="none", p=0.005)
 summary(results)
 
-write.fit(fit.cont,file="IgA_DGE.csv",adjust="none",results=results, sep=',')
-fitObj <- read.csv("IgA_DGE.csv", header=T, row.names = 1)
+write.fit(fit.cont,file="IgA_Tears_DGE.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgA_Tears_DGE.csv", header=T, row.names = 1)
 
 myNames<-names(fitObj)
 res.col<- which(regexpr("Res.",myNames)>0)
@@ -298,9 +298,83 @@ DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
 length(DElist)
 
 fitObjDE <-fitObj[DElist,]
-
+write.csv(fitObjDE,file="IgA_Tears_Voom_Hits.csv", sep=',')
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 
 mydata <- as.matrix(v$E)
+```
+
+#### Boxplots from voom normalized counts ####
+
+```{r Boxplots for Tear IgA DE Genes}
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "right",
+   axis.title.y = element_text(size=18, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+hits <- rownames(fitObjDE)
+
+Y=matrix(nrow=32,ncol=15)
+
+for (i in 1:32) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample
+
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain
+Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
+
+for (i in 1:32){
+   filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
+   p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.7, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+      scale_color_manual(values=c("black", "navy")) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Norm Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+   tiff(filename, units="in", width=3.45, height=3.5, res=300)
+   print(p)
+   dev.off()
+}
+
+fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)]
+Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)])]
+Y_combined[,17:18] <- Y[,33:34]
+Y_combined <- Y_combined[,-c(4,12)] #Removed "NXP2", "GP210"
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:14)
+
+tiff("Tear_IgA_hits.tiff", units="in", width=11.5, height=8, res=300)
+ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.7, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.7, size=2.2, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=5) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Normalized Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+dev.off()
+```
+
+############ SERUM IgA ##################
+```{r}
+
+```
+
+```{r}
+
 ```
 
