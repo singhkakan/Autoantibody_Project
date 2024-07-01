@@ -308,13 +308,13 @@ mydata <- as.matrix(v$E)
 
 ```{r Boxplots for Tear IgA DE Genes}
 chart_design <- theme(
-   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
+   plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
    axis.text.x = element_text(size=15),
    axis.text.y = element_text(size=14),
    axis.title.x = element_blank(),
    legend.text = element_text(size=15),
    legend.title = element_blank(),
-   legend.position = "right",
+   legend.position = "bottom",
    axis.title.y = element_text(size=18, margin = margin(r = 5)),
    strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
    strip.background = element_blank(), 
@@ -332,7 +332,7 @@ colnames(Y) <- colData$Sample
 
 Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
-Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
+Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:6))
 
 for (i in 1:32){
    filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
@@ -349,11 +349,27 @@ for (i in 1:32){
    print(p)
    dev.off()
 }
+```
+
+
+```{r}
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "right",
+   axis.title.y = element_text(size=19, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
 
 fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)]
 Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)])]
 Y_combined[,17:18] <- Y[,33:34]
-Y_combined <- Y_combined[,-c(4,12)] #Removed "NXP2", "GP210"
+Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
 Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:14)
 
 tiff("Tear_IgA_hits.tiff", units="in", width=11.5, height=8, res=300)
@@ -368,6 +384,8 @@ ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       scale_fill_jco()
 dev.off()
 ```
+
+
 
 ############ SERUM IgA ##################
 ```{r}
