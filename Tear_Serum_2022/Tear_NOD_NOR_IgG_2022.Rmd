@@ -1,0 +1,304 @@
+---
+title: "Tear and Serum IgG Autoantibodies - NOD & NOR mice"
+author: "Shruti Kakan"
+date: "2024-07-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/'
+)
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+#library(PCAtools)
+library(tidyverse)
+library(Biobase)
+#library(marray)
+library(limma)
+library(gplots)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+#devtools::install_github('renozao/NMF@devel')
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+#library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
+
+```
+
+
+```{r}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+#setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+IgG_NSI <- read.csv("../../Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_NSI_nor.csv",  header=T)[1:80,]
+IgG_SNR <- read.csv("../../Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
+```
+
+
+#Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names }
+#Adding Auto-antigen id names 
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
+
+#colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
+#colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
+
+Antigen_ID[68,"ID"] <- IgG_NSI[68,"ID"]
+IgG_NSI <- full_join(IgG_NSI, Antigen_ID, by="ID")
+IgG_SNR <- full_join(IgG_SNR, Antigen_ID, by="ID")
+rownames(IgG_NSI) <- IgG_NSI$Antigen_ID
+rownames(IgG_SNR) <- IgG_NSI$Antigen_ID
+
+IgG_NSI <- IgG_NSI[,-c(1, 17)]
+IgG_SNR <- IgG_SNR[,-c(1, 17)]
+
+```
+
+
+```{r}
+####Setting up column metadata
+
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+
+colData <- as.data.frame(cbind(c(colnames(IgG_NSI)), Strain))
+colnames(colData) <- c('Sample', "Strain")
+rownames(colData) <- colData$Sample
+colData$Strain <- factor(colData$Strain)
+#colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+#Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
+
+#colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+
+```
+
+
+#### Filtering Data based on low Signal to Noise ratio
+```{r Filtering rows with SNR<3}
+IgG_raw=list()
+IgG_SNR$average <- rowMeans(as.matrix(IgG_SNR)[,1:15])
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
+
+IgG_raw$NSI <- as.matrix(IgG_NSI[which(IgG_SNR$med>1.8),])
+IgG_raw$SNR <- as.matrix(IgG_SNR[which(IgG_SNR$med>1.8),])[,1:15]
+
+```
+
+
+#### Visualizing Filtered Data ####
+```{r}
+dataN <- log2(IgG_NSI * IgG_SNR[,1:15] + 0.5) 
+countData = as.data.frame(dataN)
+
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Samples)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + #xlim(-1.5,6) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+
+```
+
+
+
+```{r}
+boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
+
+dataN <- (IgG_NSI * IgG_SNR[,1:15] ) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI*SNR")
+
+
+dataN <- log2(IgG_raw$NSI * IgG_raw$SNR +0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
+
+
+dataN <- log2(IgG_raw$NSI + 0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI")
+
+```
+
+
+#Limma Based Quantile Normalization
+```{r}
+library(limma)
+dataN <- log2(IgG_raw$NSI * IgG_raw$SNR +0.5) 
+mydata <- as.matrix(dataN)
+
+conditions<- paste(colData$Strain,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+
+cont.matrix<- makeContrasts(
+   NTvBT =  NOD - BALBc,
+   nTvBT = NOR - BALBc,
+   levels = design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+
+plot.new()
+plotMD(fit.cont, col=2)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+```
+
+
+#### Voom Normalization After Removing outliers
+```{r}
+#After removing outlier samples
+
+###### Voom normalization with quantiles
+conditions<- paste(colData$Strain,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+
+v <- voom(counts=(IgG_raw$NSI*IgG_raw$SNR+0.5), design, plot=TRUE, normalize="quantile")
+#v <- voom(dae, design, plot=TRUE)
+fit <- lmFit(v, design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+topTable(fit.cont)
+#topTable(fit, coef=ncol(design))
+
+plotMDS(v,col=as.numeric(Strain))
+plot.new()
+plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+```
+
+```{r}
+#Density plots
+
+dae <- DGEList(counts=(IgG_raw$NSI*IgG_raw$SNR+0.5))
+keep <- filterByExpr(dae, design)
+dae <- dae[keep,,keep.lib.sizes=FALSE]
+dae <- calcNormFactors(dae)
+logCPM <- cpm(dae, log=TRUE, prior.count=2)
+
+df_dseq = melt(v$E, variable.name = "Samples", value.name = "count")# reshape the matrix 
+df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
+mycolors <- colorRampPalette(brewer.pal(8,"Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Var2)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + xlim(-5, 25) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+```
+
+
+```{r}
+#R-Squared ....... goodness of fit
+for (i in 1:68){
+   sst <- rowSums(v$E^2)
+   ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
+   Rsq<- (ssr/sst)
+}
+plot(1:68, Rsq)
+which(Rsq<0.90)
+
+summary(fit.cont$r.squared)
+```
+
+
+```{r}
+###Determining DE genes
+decide <- matrix(c("fdr",0.05,
+                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+# initialize:
+mysum <- as.list(1:nrow(decide))
+mynum <- 0
+maxmax <- 0
+for (test in 1:nrow(decide)){
+   results<-decideTests(fit.cont,
+                        adjust.method=decide[test,1],
+                        p=as.numeric(decide[test,2]))
+   summary(results) -> mysum[[test]]
+   mynum[test] <-length(which(apply(results,1,function(x)any(x,na.rm=T))))
+   maxmax <- max(c(maxmax, as.vector(mysum[[test]][c(1,3),])))
+}
+par(mfrow=c(1,nrow(decide)))
+for (test in 1:nrow(decide))
+{
+   as.numeric(as.vector(mysum[[test]][3,]))->plotMe1
+   as.numeric(as.vector(mysum[[test]][1,]))->plotMe2
+   maxData = max(plotMe1)
+   maxData2 = max(plotMe2)
+   barplot(plotMe1,horiz=T,col="red",xlim=c(-maxmax,maxmax),
+           main=paste("Gene Changes \np<",decide[test,2], ", " , decide[test,1],
+                      " (" ,mynum[test] ,")",sep=""))->yy
+   barplot(-plotMe2,horiz=T,col="green",add=T)->yy
+   xx<-vector("integer",ncol(mysum[[test]]))
+   text(xx,yy,colnames(mysum[[test]]))
+   text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
+   text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
+}
+```
+
+
+#### DE Analysis using voom normalized counts
+```{r}
+results<-decideTests(fit.cont,adjust.method="none", p=0.05)
+summary(results)
+
+write.fit(fit.cont,file="IgG_Tears_DGE.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgG_Tears_DGE.csv", header=T, row.names = 1)
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+
+fitObjDE <-fitObj[DElist,]
+write.csv(fitObjDE,file="IgA_Tears_Voom_Hits.csv", sep=',')
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+
+mydata <- as.matrix(v$E)
+```
