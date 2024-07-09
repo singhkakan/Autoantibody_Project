@@ -13,7 +13,6 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
 )
-
 library(car)
 library(lsmeans)
 library(calibrate)
@@ -75,6 +74,7 @@ IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:8
 IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
 Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
 
+
 ```
 
 
@@ -121,8 +121,12 @@ IgA_raw=list()
 IgA_SNR$average <- rowMeans(IgA_SNR)
 IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
 
-IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>1.8),])
-IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>1.8),])[,1:15]
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2.8),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2.8),])[,1:15]
+#IgA_raw$NSI <- as.matrix(IgA_NSI[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),])
+#IgA_raw$SNR <- as.matrix(IgA_SNR[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),][,1:15])
+
+log2(colSums(IgA_raw$NSI*IgA_raw$SNR))
 
 ```
 
@@ -141,9 +145,6 @@ ggplot(df_dseq, aes(x = count, color=Samples)) +
    theme_minimal() + #xlim(-1.5,6) +
    scale_colour_manual(values=mycolors, name="") +
    guides(fill="none")
-
-
-
 ```
 
 
@@ -154,11 +155,9 @@ dataN <- (IgA_NSI * IgA_SNR[,1:15] )
 countData = as.data.frame(dataN)
 boxplot(as.data.frame((dataN)),main="NSI*SNR")
 
-
 dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
 countData = as.data.frame(dataN)
 boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
-
 
 dataN <- log2(IgA_raw$NSI + 0.5) 
 countData = as.data.frame(dataN)
@@ -188,8 +187,6 @@ fit.cont<- eBayes(fit.cont)
 plot.new()
 plotMD(fit.cont, col=2)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
-
-
 ```
 
 
@@ -198,12 +195,12 @@ qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 #After removing outlier samples
 
 ###### Voom normalization with quantiles
-conditions<- paste(colData$Strain,sep=".")
+conditions<- paste(colData$Strain[-15],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
 
-v <- voom(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5), design, plot=TRUE, normalize="quantile")
+v <- voom(counts=(IgA_raw$NSI[,-15]*IgA_raw$SNR[,-15]+0.5), design, plot=TRUE, normalize="quantile")
 #v <- voom(dae, design, plot=TRUE)
 fit <- lmFit(v, design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
@@ -217,7 +214,10 @@ plotMD(fit.cont, col=2)
 plotMD(fit.cont, col=1)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+```
 
+
+```{r}
 #Density plots
 
 dae <- DGEList(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5))
@@ -238,18 +238,19 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
    guides(fill="none")
 
 #R-Squared ....... goodness of fit
-for (i in 1:71){
+for (i in 1:68){
    sst <- rowSums(v$E^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
-plot(1:71, Rsq)
+plot(1:68, Rsq)
 which(Rsq<0.90)
 
 summary(fit.cont$r.squared)
 ```
 
-The BALB/c sample 6 could be removed
+
+The BALB/c sample 6 was  removed
 
 ###Determining DE genes
 ```{r}
@@ -286,7 +287,7 @@ for (test in 1:nrow(decide))
 ```
 #### DE Analysis using voom normalized counts
 ```{r}
-results<-decideTests(fit.cont,adjust.method="none", p=0.005)
+results<-decideTests(fit.cont,adjust.method="none", p=0.05)
 summary(results)
 
 write.fit(fit.cont,file="IgA_Tears_DGE.csv",adjust="none",results=results, sep=',')
@@ -322,19 +323,19 @@ chart_design <- theme(
 
 hits <- rownames(fitObjDE)
 
-Y=matrix(nrow=32,ncol=15)
+Y=matrix(nrow=43,ncol=14)
 
-for (i in 1:32) {
+for (i in 1:43) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
-colnames(Y) <- colData$Sample
+colnames(Y) <- colData$Sample[-15]
 
 Y <- as.data.frame(t(Y))
-Y$Strain <- colData$Strain
-Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:6))
+Y$Strain <- colData$Strain[-15]
+Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
 
-for (i in 1:32){
+for (i in 1:43){
    filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
@@ -355,32 +356,32 @@ for (i in 1:32){
 ```{r}
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
-   axis.text.x = element_text(size=15),
-   axis.text.y = element_text(size=14),
+   axis.text.x = element_text(size=16),
+   axis.text.y = element_text(size=15),
    axis.title.x = element_blank(),
-   legend.text = element_text(size=15),
+   legend.text = element_text(size=16),
    legend.title = element_blank(),
-   legend.position = "right",
-   axis.title.y = element_text(size=19, margin = margin(r = 5)),
+   legend.position = "top",
+   axis.title.y = element_text(size=20, margin = margin(r = 5)),
    strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)]
-Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)])]
-Y_combined[,17:18] <- Y[,33:34]
-Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:14)
+fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.01)]
+Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.01 & fitObjDE$P.value.NTvBT<0.01)])]
+Y_combined[,10:11] <- Y[,44:45]
+#Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:9)
 
-tiff("Tear_IgA_hits.tiff", units="in", width=11.5, height=8, res=300)
+tiff("Tear_IgA_hits.tiff", units="in", width=8, height=8.5, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
-      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.7, position = position_dodge(0.9)) +
-      geom_jitter(color = "darkgray", alpha =0.7, size=2.2, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=5) +
+      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.8, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.6, size=2.75, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=3) +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
-      labs(title=colnames(Y[i]), hjust=0.5) +
+      labs(title=factor(Y_combined$Antigen), hjust=0.5) +
       scale_fill_jco()
 dev.off()
 ```
