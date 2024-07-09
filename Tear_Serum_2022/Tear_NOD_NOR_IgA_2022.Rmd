@@ -121,8 +121,8 @@ IgA_raw=list()
 IgA_SNR$average <- rowMeans(IgA_SNR)
 IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
 
-IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2.8),])
-IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2.8),])[,1:15]
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$average>2.8),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$average>2.8),])[,1:15]
 #IgA_raw$NSI <- as.matrix(IgA_NSI[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),])
 #IgA_raw$SNR <- as.matrix(IgA_SNR[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),][,1:15])
 
@@ -205,9 +205,18 @@ v <- voom(counts=(IgA_raw$NSI[,-15]*IgA_raw$SNR[,-15]+0.5), design, plot=TRUE, n
 fit <- lmFit(v, design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
-topTable(fit.cont)
-#topTable(fit, coef=ncol(design))
 
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=35, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=35, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+
+```
+
+#### QC plots of analysis
+```{r}
 plotMDS(v,col=as.numeric(Strain))
 plot.new()
 plotMD(fit.cont, col=2)
@@ -238,12 +247,12 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
    guides(fill="none")
 
 #R-Squared ....... goodness of fit
-for (i in 1:68){
+for (i in 1:69){
    sst <- rowSums(v$E^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
-plot(1:68, Rsq)
+plot(1:69, Rsq)
 which(Rsq<0.90)
 
 summary(fit.cont$r.squared)
@@ -368,7 +377,7 @@ chart_design <- theme(
    strip.placement = "outside")
 
 fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.01)]
-Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.01 & fitObjDE$P.value.NTvBT<0.01)])]
+Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.025 & fitObjDE$P.value.NTvBT<0.025)])]
 Y_combined[,10:11] <- Y[,44:45]
 #Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
 Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:9)
@@ -388,9 +397,14 @@ dev.off()
 
 
 
-############ SERUM IgA ##################
+##### Code for Comparing Tear IgG and IgA  ##################
 ```{r}
+Tear_IgAhits <- read.csv("IgA_Tears_Voom_Hits.csv", header=T)
+Tear_IgGhits <- read.csv("IgG_Tears_Voom_Hits.csv", header=T)
 
+Tear_Ig <- full_join(Tear_IgAhits[,c(1,5,6,7,8)], Tear_IgGhits[,c(1,5,6,7,8)], by="X")
+
+write.csv(Tear_Ig,file="IgA_IgG_Overlap_Tears_Hits.csv", sep=',')
 ```
 
 ```{r}
