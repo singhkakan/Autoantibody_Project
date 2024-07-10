@@ -206,12 +206,19 @@ fit <- lmFit(v, design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 
-NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=35, adjust.method = 'BH')
-nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=35, adjust.method = 'BH')
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=45, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=45, adjust.method = 'BH')
 NTvsBT$Antigen <- row.names(NTvsBT)
 nTvsBT$Antigen <- row.names(nTvsBT)
 NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
 rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+
+which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)
+
+NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)),]
+write.csv(NTvnTvBT, "NTvnTvBT_Tear_.csv")
+
+plot(x=colSums(IgA_raw$NSI*IgA_raw$SNR), y=colSums(IgG_raw$NSI*IgG_raw$SNR))
 
 ```
 
@@ -311,7 +318,6 @@ fitObjDE <-fitObj[DElist,]
 write.csv(fitObjDE,file="IgA_Tears_Voom_Hits.csv", sep=',')
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 
-mydata <- as.matrix(v$E)
 ```
 
 #### Boxplots from voom normalized counts ####
@@ -330,11 +336,12 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-hits <- rownames(fitObjDE)
+mydata <- as.matrix(v$E)
+hits <- rownames(NTvnTvBT)
 
-Y=matrix(nrow=43,ncol=14)
+Y=matrix(nrow=45,ncol=14)
 
-for (i in 1:43) {
+for (i in 1:45) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -365,28 +372,28 @@ for (i in 1:43){
 ```{r}
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
-   axis.text.x = element_text(size=16),
+   axis.text.x = element_text(size=14),
    axis.text.y = element_text(size=15),
    axis.title.x = element_blank(),
    legend.text = element_text(size=16),
    legend.title = element_blank(),
    legend.position = "top",
    axis.title.y = element_text(size=20, margin = margin(r = 5)),
-   strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
+   strip.text.x = element_text(size =17, margin = margin(b=20), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.01)]
-Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT<0.025 & fitObjDE$P.value.NTvBT<0.025)])]
-Y_combined[,10:11] <- Y[,44:45]
-#Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:9)
 
-tiff("Tear_IgA_hits.tiff", units="in", width=8, height=8.5, res=300)
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$P.Value.x<0.05 & NTvnTvBT$P.Value.y < 0.05 & NTvnTvBT$logFC.x>0)])]
+Y_combined[,14:15] <- Y[,c("IF", "La SSB")]
+Y_combined[,16:17] <- Y[,46:47]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:15)
+
+tiff("Tear_IgA_hits.tiff", units="in", width=10, height=8, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
-      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.8, position = position_dodge(0.9)) +
-      geom_jitter(color = "darkgray", alpha =0.6, size=2.75, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=3) +
+      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=5) +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
