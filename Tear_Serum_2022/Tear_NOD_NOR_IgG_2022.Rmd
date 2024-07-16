@@ -37,7 +37,7 @@ library(Biobase)
 #library(marray)
 library(limma)
 library(gplots)
-
+#gYN6qesAeeNZkgkD
 library(devtools)
 #install_github("dpgaile/AutoAntArrayExmpl")
 library(AutoAntArrayExmpl)
@@ -105,7 +105,6 @@ colData$Strain <- factor(colData$Strain)
 #Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
 
 #colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
-
 ```
 
 
@@ -139,7 +138,6 @@ ggplot(df_dseq, aes(x = count, color=Samples)) +
    guides(fill="none")
 
 ```
-
 
 
 ```{r}
@@ -213,6 +211,7 @@ NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
 rownames(NTvnTvBT) <- NTvnTvBT$Antigen
 
 which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
 NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)),]
 write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgG.csv", sep=',')
 ```
@@ -334,19 +333,20 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-hits <- rownames(fitObjDE)
+mydata <- as.matrix(v$E)
+hits <- rownames(NTvnTvBT)
 
-Y=matrix(nrow=38,ncol=14)
+Y=matrix(nrow=33,ncol=14)
 
-for (i in 1:38) {
+for (i in 1:33) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
-colnames(Y) <- colData$Sample
+colnames(Y) <- colData$Sample[-15]
 
 Y <- as.data.frame(t(Y))
-Y$Strain <- colData$Strain
-Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:6))
+Y$Strain <- colData$Strain[-15]
+Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
 
 for (i in 1:32){
    filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
@@ -368,25 +368,23 @@ for (i in 1:32){
 
 ```{r}
 chart_design <- theme(
-   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
    axis.text.x = element_text(size=15),
    axis.text.y = element_text(size=14),
    axis.title.x = element_blank(),
-   legend.text = element_text(size=15),
+   legend.text = element_blank(),
    legend.title = element_blank(),
    legend.position = "right",
-   axis.title.y = element_text(size=19, margin = margin(r = 5)),
-   strip.text.x = element_text(size =16, margin = margin(b=20), face='bold', hjust=0.4),
+   axis.title.y = element_text(size=19, margin=margin(r=5)),
+   strip.text.x = element_text(size=16, margin=margin(b=20), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)]
-Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.NTvBT>0)])]
-Y_combined[,17:18] <- Y[,33:34]
-Y_combined <- Y_combined[,-c(4,12)] #Removed "GP210", "NXP2"
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:14)
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.06 & NTvnTvBT$adj.P.Val.y < 0.06 & NTvnTvBT$logFC.x>0)])]
+Y_combined[,8:9] <- Y[,34:35]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:15)
 
-tiff("Tear_IgA_hits.tiff", units="in", width=11.5, height=8, res=300)
+tiff("Tear_IgG_hits.tiff", units="in", width=11.5, height=8, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.7, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.7, size=2.2, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
