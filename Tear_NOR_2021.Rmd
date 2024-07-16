@@ -9,7 +9,12 @@ output: html_document
 knitr::opts_chunk$set(
 	echo = TRUE,
 	message = FALSE,
+<<<<<<< HEAD
 	warning = FALSE
+=======
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/'
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 )
 library(car)
 library(lsmeans)
@@ -30,10 +35,17 @@ library(scales)
 library(rstatix)
 library(tidyr)
 library(magrittr)
+<<<<<<< HEAD
 library(PCAtools)
 library(tidyverse)
 library(Biobase)
 library(marray)
+=======
+#library(PCAtools)
+library(tidyverse)
+library(Biobase)
+#library(marray)
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 library(limma)
 library(gplots)
 
@@ -49,6 +61,7 @@ library(NMF)
 library(quantreg)
 library(asbio)
 library(fdrtool)
+<<<<<<< HEAD
 library(discreteMTP)
 library(scales)
 library(ggsci)
@@ -59,6 +72,31 @@ library(ggplot2)
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 IgG_NSI <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
 IgG_SNR <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
+=======
+#library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
+
+```
+
+#### Loading Raw datasets and creating meta-data df
+<<<<<<< HEAD
+```{r}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/'
+)
+IgG_NSI <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_SNR <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
+=======
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+IgG_NSI <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_NSI_nor.csv",  header=T, row.names = 1)[1:120,1:15]
+IgG_SNR <- read.csv("../../Tear_Autoantibodies_2021/IgG_MCF_SH_292_SNR.csv",  header=T, row.names = 1)[1:120,1:15]
+>>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 IgG_NSI <- IgG_NSI[which(IgG_SNR$med>3),]
@@ -79,8 +117,28 @@ colData$Biofluid <- factor(colData$Biofluid, levels = c("Tears", "Serum"))
 
 ```
 
+<<<<<<< HEAD
 #### Raw Data Visualizations
 ```{r Centering and Scaling Data, message=FALSE, warning=FALSE, paged.print=FALSE}
+=======
+<<<<<<< HEAD
+#Normalization
+```{r}
+IgG_SNR$average <- rowMeans(IgG_SNR)
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
+IgG_NSI <- IgG_NSI[which(IgG_SNR$med>3),]
+IgG_SNR <- IgG_SNR[which(IgG_SNR$med>3),]
+
+IgG_raw=list()
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$SNR <- as.matrix(IgG_SNR)
+IgG_raw$SInfo <- colData
+
+=======
+#### Raw Data Visualizations
+```{r Centering and Scaling Data, message=FALSE, warning=FALSE, paged.print=FALSE}
+>>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 clrs=c(rep(pal_jco("default")(4)[1:2], each=3), rep(pal_jco("default")(4)[3], each=6), rep(pal_jco("default")(4)[4], each=3))
 pchs=c(rep(2,3),rep(4,3), rep(5,6), rep(8,3))
 
@@ -93,6 +151,126 @@ bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw)) # 99 elements
 ```
 
 ## Normalization
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+### First Stage
+
+```{r}
+#enable to background correct
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$NSI = IgG_raw$NSI*IgG_raw$SNR[,1:15] ##NSI changed permanantly
+IgG_raw$X_norm_1=IgG_raw$NSI
+eps=.10
+IgG_raw$QregFits=array(NA,dim=c(99,2))
+TriMn=RowTriMeans(IgG_raw$X_norm_1) #new NSI Tukey tri mean
+ResMat=c(IgG_raw$X_norm_1,IgG_raw$X_norm_1)-matrix(rep(TriMn,30),ncol=30) #New_NSI - NewNSI_TriMn 
+SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
+
+par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
+plot(rep(TriMn,30),as.vector(ResMat),
+     xlim=quantile(TriMn,prob=c(0,.8)),
+     ylim=quantile(as.vector(ResMat),prob=c(0.05,.95)),
+     type="n",xlab="Raw Signal Tri-Mean",ylab="Raw Signal",
+     main="IgG Raw Signal")
+for(j in 1:15){
+   points(TriMn,ResMat[,j],cex=0.5,pch=pchs[j],col=clrs[j])
+   points(TriMn,ResMat[,15+j],cex=0.5,pch=pchs[j],col=clrs[j])
+   y=c(ResMat[,j], ResMat[,15+j])
+   x=c(TriMn, TriMn)
+   fitj <- rq(y ~ x, tau = .5,subset=which(c(SubMat[,j], SubMat[,15+j])))
+   abline(coef(fitj),col=clrs[j])
+   IgG_raw$QregFits[j,]=coef(fitj)
+   prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+   IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-prdct
+} ###substracting the model fit straight line from the data
+#Xnorm_1 here is the residual value
+
+```
+
+
+```{r}
+eps=0.10
+q.eps=0.10
+lambda=.10 # incremental change
+nitr=75 # number of iterations -> this should help us optimize the lambda for best fit
+sad=rep(0,nitr) # sum of absolute deviations
+# re-init
+IgG_raw$X_1step_norm_1=IgG_raw$X_norm_1 #calculated in the last loop
+IgG_raw$X_norm_1=IgG_raw$NSI #reinitializing
+
+
+for(i in 1:nitr){
+   # snoop and grab invariants
+   X=IgG_raw$X_norm_1
+   iWRS=function(i) t.test(X[i,c(1:3,7:12)],X[i,c(4:5,13:15)])$p.value
+   qMat=matrix(rep(mapply(iWRS,1:99),30),ncol=30)
+   qMat[which(is.na(qMat[,1])==T),] <- 0 #all NANs replaced by 0
+   qcut=quantile(qMat[,1],prob=q.eps)
+   
+   TriMn=RowTriMeans(IgG_raw$X_norm_1)
+   ResMat=c(IgG_raw$X_norm_1,IgG_raw$X_norm_1)-matrix(rep(TriMn,30),ncol=30)
+   SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps) #all residuals with absolute values less than the cutoff of 90%
+   SubMat[qMat<qcut]=FALSE #which p values are greater than the cutoffs
+   for(j in 1:15){
+      y=c(ResMat[,j], ResMat[,15+j])
+      x=c(TriMn, TriMn)
+      fitj <- rq(y ~ x, tau = .5,subset=which(c(SubMat[,j], SubMat[,15+j])))
+      prdct=coef(fitj)[1]+coef(fitj)[2]*TriMn
+      IgG_raw$X_norm_1[,j]=IgG_raw$X_norm_1[,j]-lambda*prdct
+      sad[i]=sad[i]+sum(abs(2*lambda*prdct))
+   }###substracting the model fit straight line from the data
+   print(sad)
+   print(qcut)
+}
+
+plot(1:nitr,sad,main="iterative adj IgG")
+smoothScatter(IgG_raw$X_1step_norm_1,IgG_raw$X_norm_1, nbin = 500)
+abline(0,1,col="steelblue")
+
+```
+
+### Second Stage ########
+```{r}
+deltaG=min(as.vector(IgG_raw$X_norm_1))
+IgG_raw$W_1=log(IgG_raw$X_norm_1-deltaG+1)
+# get resids..
+W_1=IgG_raw$W_1
+RW=RowTriMeans(W_1)
+# get residual matrices
+RW_MAT=matrix(rep(RW,dim(W_1)[2]),ncol=dim(W_1)[2])
+W_1=W_1-RW_MAT
+
+W=W_1
+bw.est=unlist(apply(W,2,r.bw))
+# now, rescale
+for(j in 1:15){
+   W_1[,j]=W_1[,j]/sqrt(bw.est[j])
+}
+# now, get new values..
+IgG_raw$W_1=RW_MAT+W_1
+
+```
+
+## Formal Comparison of NOR and Balb/c AutoAntigen Expresion Profiles
+
+```{r}
+mydata <- as.matrix(IgG_raw$W_1)
+#mydata <- as.matrix(IgG_raw$X_nrm_1)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Biofluid <- factor(colData$Biofluid)
+
+conditions<- paste(colData$Strain, colData$Biofluid,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+rownames(design) <- colnames(mydata)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+#sqrt(anova.MAList(fit)["Residuals","Mean Sq"]) #???
+summary(fit)
+
+=======
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 ### First Stage with visualizations
 ```{r Normalization - I, message=FALSE, warning=FALSE, paged.print=FALSE}
 #enable to background correct
@@ -231,6 +409,10 @@ summary(fit)
 
 
 ```{r}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 cont.matrix<- makeContrasts(
    NTvsBT =  NOR.Tears - BALBc.Tears,
    NSvBS = NOR.Serum - BALBc.Serum,
@@ -242,8 +424,15 @@ fit.cont<- eBayes(fit.cont)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,cex=1)
 abline(0,2)
 topTable(fit.cont,number=23,adjust="BH")
+<<<<<<< HEAD
 ```
 
+=======
+
+```
+
+
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 #### R-Squared ....... goodness of fit
 ```{r}
 for (i in 1:99){
@@ -252,15 +441,26 @@ for (i in 1:99){
    Rsq<- (ssr/sst)
 }
 plot(1:99, Rsq)
+<<<<<<< HEAD
 which(Rsq<0.5)
 
+=======
+
+which(Rsq<0.7)
+
+which(Rsq<0.5)
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 summary(fit.cont$r.squared)
 ```
 
 #### Determining which tests to use ####
 ```{r}
+<<<<<<< HEAD
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+=======
+decide <- matrix(c("fdr",0.05,"fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 
 # initialize:
 mysum <- as.list(1:nrow(decide))
@@ -290,6 +490,7 @@ for (test in 1:nrow(decide))
    text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
    text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
 }
+<<<<<<< HEAD
 
 ```
 
@@ -299,17 +500,51 @@ results<-decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
 write.fit(fit.cont,file="../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv",adjust="none",results=results, sep=',')
 fitObj <- read.csv("../../Tear_Autoantibodies_2021/IgG_DGE_W1.csv", header=T, row.names = 1)
+=======
+```
+
+#Generate outputs for IgG Datasets
+```{r}
+
+results <- decideTests(fit.cont,adjust.method="none", p=0.01)
+summary(results)
+write.fit(fit.cont,file="~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_DGE_W1_results.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/IgG_DGE_W1_results.csv", header=T, row.names = 1)
+
+```
+
+####  ####
+```{r}
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 
 myNames<-names(fitObj)
 res.col<- which(regexpr("Res.",myNames)>0)
 DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
 length(DElist)
+<<<<<<< HEAD
 fitObjDE <-fitObj[DElist,]
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 ```
 
 ###### Serum boxplot #####
 
+=======
+
+fitObjDE <- fitObj[DElist,]
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+```
+
+
+#Identifying Serum hits for Serum hits
+```{r}
+fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.05 & abs(fitObj$Coef.NSvBS) > 0.5), ] 
+mydata <- as.matrix(IgG_raw$W_1)[1:99,]
+hits <- rownames(fitObjres)
+
+```
+
+######Serum boxplots #####
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 ```{r}
 chart_design <- theme(
    plot.title = element_text(color = "Black", size = 17, face = "bold", margin = margin(b=25), hjust=0.4),
@@ -324,6 +559,7 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
+<<<<<<< HEAD
 fitObjres<- fitObj[which(fitObj$P.value.NSvBS < 0.025 & (fitObj$Coef.NSvBS) > 0.5), ]#Serum
 mydata <- as.matrix(IgG_raw$W_1)[1:99,]
 hits <- rownames(fitObjres)
@@ -333,12 +569,20 @@ Y=matrix(nrow=18,ncol=15)
 for (i in 1:18) {
    Y[i,] <- mydata[hits[i],]
 }
+=======
+Y=matrix(nrow=length(hits),ncol=15)
+for (i in 1:length(hits)) {
+   Y[i,] <- mydata[hits[i],]
+}
+hits
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 rownames(Y) <- hits
 colnames(Y) <- colData$Sample
 
 Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
 Y$Biofluid <- colData$Biofluid
+<<<<<<< HEAD
 hits <- colnames(Y)[1:18]
 Y_Ser <- Y[which(Y$Biofluid=="Serum"),]
 colnames(Y_Ser)[6] <- "DNA POLB"
@@ -353,6 +597,29 @@ hits <- colnames(Y_Ser)[1:18]
 for (i in 1:18){
    setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/")
    filename <- paste(hits[i],"S_IgG_norm.tiff", sep="")
+=======
+
+Y_Ser <- Y[which(Y$Biofluid=="Serum"),]
+
+colnames(Y_Ser)[3] <- "C3"
+colnames(Y_Ser)[4] <- "C4"
+colnames(Y_Ser)[5] <- "C5"
+colnames(Y_Ser)[7] <- "DNA POLB"
+colnames(Y_Ser)[9] <- "IF"
+colnames(Y_Ser)[10] <- "La SSB"
+colnames(Y_Ser)[14] <- "MBP"
+colnames(Y_Ser)[18] <- "PM Scl-100"
+colnames(Y_Ser)[19] <- "RPP P0"
+colnames(Y_Ser)[20] <- "Sm RNP"
+colnames(Y_Ser)[22] <- "TNF alpha"
+colnames(Y_Ser)[23] <- "U1snRNP 68 70"
+
+hits <- colnames(Y_Ser)[1:24]
+
+for (i in 1:24){
+   setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Autoantibodies_2021/")
+   filename <- paste(hits[i],"__Serum_IgG.tiff", sep="")
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
    p<- ggplot(Y_Ser, aes(x=Strain, y=log10(2^Y_Ser[,i]), fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.35, coef=1, varwidth=F, show.legend = T, size=0.75) +
       geom_jitter(color = "darkgray", alpha =0.7, size=2.1, show.legend = F, position=position_jitterdodge(0.55))+
@@ -362,6 +629,7 @@ for (i in 1:18){
       ylab("Log Norm Intensity")  + 
       labs(title=colnames(Y_Ser[i]), hjust=0.5) +
       #scale_x_discrete("Biofluid", labels=c("Tear", "Serum")) +
+<<<<<<< HEAD
       scale_fill_jco() #+
       #scale_y_continuous(label=scientific_10)
    #tiff(filename, units="in", width=3, height=3, res=300)
@@ -369,6 +637,18 @@ for (i in 1:18){
    #dev.off()
 }
 
+=======
+      scale_fill_jco() #+ ylim(5.5,28)
+      #scale_y_continuous(label=scientific_10)
+   tiff(filename, units="in", width=2.35, height=3.2, res=300)
+   print(p)
+   dev.off()
+}
+```
+
+##### Boxplots facetted
+```{r}
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 #facetted plot
 library(tidyr)
 Y_Ser_facet <- gather(Y_Ser, key="Autoantigen", value = "Norm_Intensity", 1:18)
@@ -387,9 +667,18 @@ for (i in 1:3) {
       scale_fill_jco()
 }
 
+<<<<<<< HEAD
 
 ```
 
+=======
+```
+
+
+
+
+
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 ##### Code for Boxplots of tears hits ####
 ```{r}
 fitObjres<- fitObj[which(fitObj$P.value.NTvsBT < 0.05 & (fitObj$Coef.NTvsBT) > 0), ] 
@@ -445,6 +734,10 @@ for (i in 1:3) {
    facet_wrap(facets=Z_Ter_facet$Autoantigen, nrow=3, ncol=4, scales="free") +
       scale_fill_jco()
 }
+<<<<<<< HEAD
+=======
+>>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 ```
 
 
@@ -457,6 +750,11 @@ for (i in 1:3) {
 
 ```
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
 
 ```{r}
 
@@ -466,3 +764,7 @@ for (i in 1:3) {
 ```{r}
 
 ```
+<<<<<<< HEAD
+=======
+>>>>>>> 2387758ac4523e15c65d3ae5fa949647e9d53b98
+>>>>>>> 5e186b27f386823a996a0c0d742cfee88710b307
