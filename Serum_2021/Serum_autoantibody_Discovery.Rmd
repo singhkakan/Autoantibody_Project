@@ -13,9 +13,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/')
-#github token
-#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
-#Expiry 07/07/24
+
 ```
 
 
