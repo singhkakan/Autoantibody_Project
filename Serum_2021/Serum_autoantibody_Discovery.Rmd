@@ -11,11 +11,15 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/')
+#github token
+#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
+#Expiry 07/07/24
 ```
 
 
-```{r Loading the libraries, message=FALSE, warning=FALSE}
+```{r Loading the libraries, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 
 library(car)
 library(lsmeans)
@@ -37,17 +41,22 @@ library(scales)
 library(rstatix)
 library(tidyr)
 library(magrittr)
-library(PCAtools)
+#library(PCAtools)
 library(tidyverse)
 library(Biobase)
-library(marray)
+#library(marray)
 library(limma)
 library(gplots)
 ```
 
 ##### 0 Dataset ######
 ```{r Dataset, message=FALSE, warning=FALSE, paged.print=FALSE}
-data <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SH_179_raw.csv",  header=T, row.names = 1)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/')
+data <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_SH_179_raw.csv",  header=T, row.names = 1)
 #Columns 16-47 are empty and are therefore removed
 data <- as.data.frame((data))[,-c(16:47)]
 
@@ -55,15 +64,15 @@ data <- as.data.frame((data))[,-c(16:47)]
 Strain <- c(rep(c("BALBc", "NOD"), each=6), rep(c("NOD"), each=3))
 Age <- c(rep(c("8wks", "28wks"), each=3), rep(c("8wks", "24wks", "33wks"), each=3))
 Group <- c(rep(c("A","B","C","D","E"), each=3))
-colData <- as.data.frame(cbind(c('B1_8', 'B2_8', 'B3_8', 'B1_28', 'B2_28', 'B3_28', 'N1_8', 'N2_8', 'N3_8', 'N1_24', 'N2_24', 'N3_24', 'N1_33', 'N2_33', 'N3_33'), Strain, Age, Group))
-colnames(colData) <- c('Sample', "Strain", "Age", "Group")
-rownames(colData) <- colData$Sample
-colnames(data) <- colData$Sample
+colData0 <- as.data.frame(cbind(c('B1_8', 'B2_8', 'B3_8', 'B1_28', 'B2_28', 'B3_28', 'N1_8', 'N2_8', 'N3_8', 'N1_24', 'N2_24', 'N3_24', 'N1_33', 'N2_33', 'N3_33'), Strain, Age, Group))
+colnames(colData0) <- c('Sample', "Strain", "Age", "Group")
+rownames(colData0) <- colData0$Sample
+colnames(data) <- colData0$Sample
 
-colData$Strain <- factor(colData$Strain)
-colData$Strain <- relevel(colData$Strain, ref = "BALBc")
-colData$Age <- factor(colData$Age, levels = c("8wks", "24wks", "28wks", "33wks"))
-colData$Age <- relevel(colData$Age, ref='8wks')
+colData0$Strain <- factor(colData0$Strain)
+colData0$Strain <- relevel(colData0$Strain, ref = "BALBc")
+colData0$Age <- factor(colData0$Age, levels = c("8wks", "24wks", "28wks", "33wks"))
+colData0$Age <- relevel(colData0$Age, ref='8wks')
 
 ```
 
@@ -98,7 +107,7 @@ dataN <- mydata
 boxplot(as.data.frame(log2(dataN+0.5)),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
 
 library(matrixStats) #for function rowmedians
-IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR <- read.csv("../../3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 mydata <- data[which(IgG_SNR$average>3),] #filtering rows with high noise (i.e., rows with Signal to Noise Ratio or SNR > 3)
@@ -200,11 +209,11 @@ for (test in 1:nrow(decide))
 ```{r DGE Results using Limma, message=FALSE, warning=FALSE, paged.print=FALSE}
 results<-decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
-write.fit(fit.cont,file="IgG_DGE_0423.csv",adjust="none",results=results, sep=',')
-fitObj <- read.csv("IgG_DGE_0423.csv", header=T, row.names = 1)
+write.fit(fit.cont,file="IgG_DGE_Limma_fit.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgG_DGE_Limma_fit.csv", header=T, row.names = 1)
 
 toptable1 <- topTable(fit.cont, coef=2, adjust.method="none", p=0.01, sort.by = "P", n = Inf)
-write.csv(toptable1,file="IgG_DGE_0423_II.csv")
+write.csv(toptable1,file="IgG_DGE_Limma_fitII.csv")
 
 myNames<-names(fitObj)
 res.col<- which(regexpr("Res.",myNames)>0)
@@ -221,8 +230,8 @@ fitObjDE
 
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 library(devtools)
-#install_github("dpgaile/AutoAntArrayExmpl")
-library(AutoAntArrayExmpl)
+install_github("dpgaile/AutoAntArrayExmpl")
+#library(AutoAntArrayExmpl)
 
 library(devtools)
 #install_github("dpgaile/AutoAntArrayExmpl")
@@ -231,26 +240,32 @@ library(NMF)
 library(quantreg)
 library(asbio)
 library(fdrtool)
-library(discreteMTP)
+#library(discreteMTP)
 ```
 
 ### Reading in Raw Data
 ```{r}
-IgG_NSI <- read.csv("../../SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[,1:15]
-IgG_SNR <- read.csv("../../SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/'
+)
+
+IgG_NSI <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_NSI.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
 IgG_SNR$average <- rowMeans(IgG_SNR) #adding columns for average SNR for each row (autoantibody)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR)) #adding column for median SNR for each row 
-IgG_NSI <- IgG_NSI[which(IgG_SNR$average>3),]
-IgG_SNR <- IgG_SNR[which(IgG_SNR$average>3),]
+IgG_NSI <- IgG_NSI[which(IgG_SNR$average>2),]
+IgG_SNR <- IgG_SNR[which(IgG_SNR$average>2),]
 IgG_raw=list()
-IgG_raw$NSI <- as.matrix(IgG_NSI[,1:12])
-IgG_raw$SNR <- as.matrix(IgG_SNR[,1:12]) #Excluding the Nod 33 week sample
+IgG_raw$NSI <- as.matrix(IgG_NSI)
+IgG_raw$SNR <- as.matrix(IgG_SNR[,1:15]) 
 
-colData$Strain <- relevel(colData$Strain, ref = "BALBc")
-colData$Age <- factor(colData$Age, levels = c("8wks", "24wks","28wks"))
-colData$Age <- relevel(colData$Age, ref="8wks")
-IgG_raw$SInfo <- colData
-
+colData0$Strain <- relevel(colData0$Strain, ref = "BALBc")
+colData0$Age <- factor(colData0$Age, levels = c("8wks", "24wks","28wks", "33wks"))
+colData0$Age <- relevel(colData0$Age, ref="8wks")
+IgG_raw$SInfo <- colData0
 
 #Defining colors and point shapes
 clrs=c(rep(pal_jco("default")(5), each=3))#[1:12]
@@ -275,22 +290,23 @@ bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw))
 ### First Stage
 
 #enable to background correct
-IgG_raw$NSI <- as.matrix(IgG_NSI[,1:12])
+IgG_raw$NSI <- as.matrix(IgG_NSI[,1:15]) #Not Excluding the Nod 33 week sample
+IgG_raw$SNR <- as.matrix(IgG_SNR[,1:15])
 IgG_raw$NSI=IgG_raw$NSI * IgG_raw$SNR ##NSI changed permanently
 IgG_raw$X_norm_1=IgG_raw$NSI
 eps=.10
-IgG_raw$QregFits=array(NA,dim=c(12,70))
+IgG_raw$QregFits=array(NA,dim=c(15,70))
 TriMn=RowTriMeans(IgG_raw$X_norm_1)
-ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
+ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,15),ncol=15)
 SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
 
 par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
-plot(rep(TriMn,12),as.vector(ResMat),
+plot(rep(TriMn,15),as.vector(ResMat),
      xlim=quantile(TriMn,prob=c(0,.8)),
      ylim=quantile(as.vector(ResMat),prob=c(0.05,.95)),
      type="n",xlab="Raw Signal Tri-Mean",ylab="Raw Signal",
      main="IgG Raw Signal")
-for(j in 1:12){
+for(j in 1:15){
    points(TriMn,ResMat[,j],cex=0.5,pch=pchs[j],col=clrs[j])
    y=ResMat[,j]
    x=TriMn
@@ -305,7 +321,7 @@ for(j in 1:12){
 eps=0.10
 q.eps=0.10
 lambda=.10 # incremental change
-nitr=75 # number of iterations -> this should help us optimize the lambda for best fit
+nitr=99 # number of iterations -> this should help us optimize the lambda for best fit
 sad=rep(0,nitr) # sum of absolute deviations
 # re-init
 IgG_raw$X_1step_norm_1=IgG_raw$X_norm_1 #calculated in the last loop
@@ -314,15 +330,15 @@ IgG_raw$X_norm_1=IgG_raw$NSI #reinitializing
 for(i in 1:nitr){
    # snoop and grab invariants
    X=IgG_raw$X_norm_1
-   iWRS=function(i) t.test(X[i,1:6],X[i,7:12])$p.value
-   qMat=matrix(rep(mapply(iWRS,1:70),12),ncol=12)
+   iWRS=function(i) t.test(X[i,1:6],X[i,7:15])$p.value
+   qMat=matrix(rep(mapply(iWRS,1:73),15),ncol=15)
    qMat[which(is.na(qMat[,1])==T),] <- 0 #all NANs replaced by 0
    qcut=quantile(qMat[,1],prob=q.eps)
    TriMn=RowTriMeans(IgG_raw$X_norm_1)
-   ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
+   ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,15),ncol=15)
    SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps) #all residuals with absolute values less than the cutoff of 90%
    SubMat[qMat<qcut]=FALSE #which p values are greater than the cutoffs
-   for(j in 1:12){
+   for(j in 1:15){
       y=ResMat[,j]
       x=TriMn
       fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j]))
@@ -349,7 +365,7 @@ W_1=W_1-RW_MAT
 W=W_1
 bw.est=unlist(apply(W,2,r.bw))
 # now, rescale
-for(j in 1:12){
+for(j in 1:15){
    W_1[,j]=W_1[,j]/sqrt(bw.est[j])
 }
 
@@ -360,10 +376,10 @@ IgG_raw$W_1=RW_MAT+W_1
 
 ## Formal Comparison of NOD.B10 and BL/10 AutoAntigen Expresion Profiles
 
-```{r}
-mydata <- as.matrix(IgG_raw$W_1)
+```{r Without 33 weeks NOD}
+mydata <- as.matrix(IgG_raw$W_1[,1:12])
 #mydata <- as.matrix(IgG_raw$X_nrm_1)
-colData <- colData[1:12,] #removing male NOD 33 weeks sample
+colData <- colData0[1:12,] #removing male NOD 33 weeks sample
 colData$Strain <- relevel(colData$Strain, ref = "BALBc")
 colData$Age <- factor(colData$Age)
 
@@ -387,16 +403,58 @@ fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,pch=16,cex=0.5)
 abline(0,1)
-topTable(fit.cont,number=15,adjust="BH")
+topTable(fit.cont,number=30,adjust="BH", coef=1)
 
 #R-Squared ....... goodness of fit
-for (i in 1:70){
+for (i in 1:73){
    sst <- rowSums(mydata^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
+print(Rsq)
 #summary(lm.first)$r.squared
 
+```
+
+
+```{r With 33 weeks NOD}
+mydata <- as.matrix(IgG_raw$W_1)
+#mydata <- as.matrix(IgG_raw$X_nrm_1)
+colData <- colData0[1:15,] #removing male NOD 33 weeks sample
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+colData$Age <- factor(colData$Age)
+
+conditions<- paste(colData$Strain, colData$Age,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+rownames(design) <- colnames(mydata)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+summary(fit)
+
+cont.matrix<- makeContrasts(
+   B8vsN8 = NOD.8wks - BALBc.8wks,
+   B28vB8 = BALBc.28wks - BALBc.8wks,
+   B28vN24 = NOD.24wks - BALBc.28wks,
+   N24vN8 = NOD.24wks - NOD.8wks,
+   N33vN8 = NOD.33wks - NOD.8wks,
+   B28vN33 = NOD.33wks - BALBc.28wks,
+   Age = (NOD.24wks + NOD.33wks + BALBc.28wks )- (NOD.8wks + BALBc.8wks), 
+   levels = design)
+
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,pch=16,cex=0.5)
+abline(0,1)
+topTable(fit.cont,number=30,adjust="BH")
+
+#R-Squared ....... goodness of fit
+for (i in 1:73){
+   sst <- rowSums(mydata^2)
+   ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
+   Rsq<- (ssr/sst)
+}
+print(Rsq)
 ```
 
 
@@ -434,11 +492,12 @@ for (test in 1:nrow(decide))
 }
 ```
 
+
 ```{r}
-results <- decideTests(fit.cont,adjust.method="fdr", p=0.05)
+results <- decideTests(fit.cont,adjust.method="none", p=0.05)
 summary(results)
 
-write.fit(fit.cont,file="Serum_2021_IgG_DGE.csv",adjust="fdr",results=results, sep=',')
+write.fit(fit.cont,file="Serum_2021_IgG_DGE.csv",adjust="none",results=results, sep=',')
 fitObj <- read.csv("Serum_2021_IgG_DGE.csv", header=T, row.names = 1)
 
 myNames<-names(fitObj)
@@ -450,29 +509,87 @@ fitObjDE <-fitObj[DElist,]
 
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 
-fitObjres<- fitObj[which(fitObj$P.value.B28vN24 < 0.05 & abs(fitObj$Coef.B28vN24) > 0), ]
+fitObjres<- fitObj[which(fitObj$P.value.B8vsN8 < 0.05 & abs(fitObj$Coef.B8vsN8) > 0), ]
 fitObjres
+fitObjres_old<- fitObj[which(fitObj$P.value.B28vN24 < 0.05 & abs(fitObj$Coef.B28vN24) > 0), ]
+fitObjres_old
 
 ```
 
-#### boxplot ######
+#### boxplot of young mice ####
 ```{r}
-mydata <- as.matrix(IgG_raw$W_1)[1:70,]
-hits <- rownames(fitObjres)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/')
 
 chart_design <- theme(
-   plot.title = element_text(color = "Black", size = 17, face = "bold", margin = margin(b=25), hjust=0.4),
-   axis.text.x = element_text(size=14),
-   axis.text.y = element_text(size=12),
+   plot.title = element_text(color = "Black", size = 19, face = "bold", margin = margin(b=25), hjust=0.4),
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=16),
    axis.title.x = element_blank(),
-   legend.text = element_text(size=12, margin = margin(r=0,l=-5)),
+   legend.text = element_text(size=11, margin = margin(t=0, r=-1,l=-1)),
    legend.title = element_blank(),
    legend.position = "bottom",
-   axis.title.y = element_text(size=13, margin = margin(r = 5)),
-   strip.text.x = element_text(size =17, margin = margin(b=25), face='bold', hjust=0.4),
+   axis.title.y = element_text(size=17, margin = margin(r = 5)),
+   strip.text.x = element_text(size =19, margin = margin(b=25), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
+mydata <- as.matrix(IgG_raw$W_1)[1:73,]
+hits <- rownames(fitObjres)
+Y=matrix(nrow=30,ncol=12)
+for (i in 1:30) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample
+
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain
+Y$Age <- colData$Age
+Y$Group <- colData$Group
+Y$AGE <- c(rep("Young", 3), rep("Old", 3), rep("Young", 3), rep("Old", 3))
+Y$AGE <- as.factor(Y$AGE)
+
+hits <- colnames(Y)[1:30] #change only colnames so figure headings are meaningful
+
+#hits elements will form file names
+colnames(Y)[1] <- "B2GP"
+colnames(Y)[10] <- "IF"
+colnames(Y)[12] <- "KU (P70/P80)"
+colnames(Y)[13] <- "La/SSB"
+colnames(Y)[18] <- "Mito Antigen"
+colnames(Y)[23] <- "PM/Scl100"
+colnames(Y)[25] <- "RPP P2"
+#colnames(Y)[20] <- "RPP P0"
+
+par(mfrow=c(2,5))
+for (i in 1:30){
+   filename <- paste(hits[i], "IgG.tiff", sep="")
+   p<- ggplot(Y, aes(x=Strain, y=Y[,i])) +
+      geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.40, coef=1, varwidth=F, show.legend = F, size=0.70, position = position_dodge(0.9) ) +
+     geom_jitter(aes(fill=AGE), pch=21,size=2,  position=position_jitterdodge(0.40)) +
+      scale_color_jco() +
+     scale_fill_aaas() +
+      guides(color="none") +
+      theme_minimal() +
+      chart_design +
+         ylab("Log Norm. Intensity")  + ylim(5.5,24.5) +
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_x_discrete("Strain", labels=c("BALB/c", "NOD"))
+   tiff(filename, units="in", width=2.35, height=3.6, res=300)
+   print(p)
+   dev.off()
+}
+
+```
+
+#### boxplot of old mice######
+```{r}
+mydata <- as.matrix(IgG_raw$W_1)[1:70,]
+hits <- rownames(fitObjres_old)
 Y=matrix(nrow=26,ncol=12)
 for (i in 1:26) {
    Y[i,] <- mydata[hits[i],]
@@ -484,35 +601,36 @@ Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
 Y$Age <- colData$Age
 Y$Group <- colData$Group
+Y$AGE <- c(rep("Young", 3), rep("Old", 3), rep("Young", 3), rep("Old", 3))
+Y$AGE <- as.factor(Y$AGE)
 
-hits <- colnames(Y)[1:26]
+#hits elements will form file names
+
 colnames(Y)[8] <- "KU (P70/P80)"
 colnames(Y)[9] <- "La/SSB"
-colnames(Y)[17] <- "PM/Scl-100"
+colnames(Y)[17] <- "PM/Scl100"
 colnames(Y)[19] <- "RPP P2"
 colnames(Y)[20] <- "RPP P0"
 
-par(mfrow=c(4,6))
+#Y=Y[c(4:6, 10:12),]
+par(mfrow=c(2,5))
 for (i in 1:26){
-   filename <- paste(hits[i], ".IgG.tiff", sep="")
-   p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Age)) +
-      geom_boxplot(outlier.shape = NA, width = 0.7, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9) ) +
-      scale_fill_jco() +
-      scale_color_manual(values=c("black", "navy")) +
+   filename <- paste(hits[i], "Serum.IgG.tiff", sep="")
+   p<- ggplot(Y, aes(x=Strain, y=Y[,i])) +
+      geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.4, coef=1, varwidth=F, show.legend = F, size=0.5) +
+     geom_jitter(aes(fill=AGE), size=2, pch=21, width = 0.25) +
+      scale_color_jco() +
+     scale_fill_aaas() +
       theme_minimal() +
       chart_design +
          ylab("Log Normalized Intensity")  + 
       labs(title=colnames(Y[i]), hjust=0.5) +
-      scale_x_discrete("Strain", labels=c("BALB/c", "NOD"))
-   tiff(filename, units="in", width=2.85, height=2.9, res=300)
+      scale_x_discrete("Strain", labels=c("BALB/c", "NOD")) + 
+     ylim(5.5,27.5) + guides(color="none")
+   tiff(filename, units="in", width=3.2, height=3.25, res=300)
    print(p)
    dev.off()
 }
-```
-
-
-```{r}
-
 ```
 
 
