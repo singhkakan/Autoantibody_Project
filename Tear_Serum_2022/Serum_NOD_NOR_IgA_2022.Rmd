@@ -1,0 +1,402 @@
+---
+title: "Serum_IgA_2022"
+author: "Shruti Kakan"
+date: "2024-06-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Loading Libraries ####
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+#library(PCAtools)
+library(tidyverse)
+library(Biobase)
+#library(marray)
+library(limma)
+library(gplots)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+#devtools::install_github('renozao/NMF@devel')
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+#library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
+
+```
+
+# IgA Analysis ##########
+#______________________________________________________________
+
+```{r Reading in Raw Serum Data}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_NSI_norm_Serum.csv",  header=T)[1:80,]
+IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_SNR_Serum.csv",  header=T)[1:80,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
+
+```
+
+#Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names }
+#Adding Auto-antigen id names 
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
+
+#colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
+#colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
+
+Antigen_ID[68,"ID"] <- IgA_NSI[68,"ID"]
+IgA_NSI <- full_join(IgA_NSI, Antigen_ID, by="ID")
+IgA_SNR <- full_join(IgA_SNR, Antigen_ID, by="ID")
+rownames(IgA_NSI) <- IgA_NSI$Antigen_ID
+rownames(IgA_SNR) <- IgA_SNR$Antigen_ID
+
+IgA_NSI <- IgA_NSI[,-c(1, 17)]
+IgA_SNR <- IgA_SNR[,-c(1, 17)]
+
+```
+
+
+```{r}
+####Setting up column metadata
+
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+
+colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain))
+colnames(colData) <- c('Sample', "Strain")
+rownames(colData) <- colData$Sample
+colData$Strain <- factor(colData$Strain)
+#colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+#Biofluid <- c( rep("Tear", each=11), rep("Serum", each=11))
+#colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+```
+
+#### Filtering Data based on low Signal to Noise ratio
+```{r Filtering rows with SNR<3}
+IgA_raw=list()
+IgA_SNR$average <- rowMeans(IgA_SNR[,-1])
+IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR[-1]))
+
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>3),])
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>3),])[,1:15]
+```
+
+#### Visualizing Filtered Data ####
+```{r}
+dataN <- log2(IgA_NSI * IgA_SNR[,1:15] + 0.5) 
+countData = as.data.frame(dataN)
+
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Samples)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + #xlim(-1.5,6) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+```
+
+NOD M1 Serum appears to be the most variable, and was therefore removed
+
+#### Boxplots of raw and SNR based Filtered Data ####
+
+```{r}
+boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
+
+dataN <- (IgA_NSI * IgA_SNR[,1:15] ) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI*SNR")
+
+dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
+
+dataN <- log2(IgA_raw$NSI + 0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="NSI")
+```
+
+#IgA levels appear to be much lower in serum than in tears
+
+
+#Limma Based Quantile Normalization
+```{r}
+library(limma)
+dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+mydata <- as.matrix(dataN)
+
+conditions<- paste(colData$Strain,sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+
+plot.new()
+
+cont.matrix<- makeContrasts(
+   NTvBT =  NOD - BALBc,
+   nTvBT = NOR - BALBc,
+   levels = design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+plotMDS(fit)
+plot.new()
+plotMD(fit.cont, col=2)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+
+```
+
+#### Voom Normalization After Removing outliers ####
+
+NOD M1 was removed recursively
+```{r Voom After removing outlier samples}
+
+###### Voom normalization with quantiles
+conditions<- paste(colData$Strain[-1],sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+
+v <- voom(counts=(IgA_raw$NSI*IgA_raw$SNR + 0.5)[,-1], design, plot=TRUE, normalize="quantile")
+
+#v <- voom(dae, design, plot=TRUE)
+fit <- lmFit(v, design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+topTable(fit.cont)
+#topTable(fit, coef=ncol(design))
+
+plotMDS(v,col=as.numeric(Strain))
+plot.new()
+plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+
+
+
+```
+
+#### Density plots post voom normalization ####
+```{r Density plots}
+dae <- DGEList(counts=(IgA_raw$NSI * IgA_raw$SNR + 0.5))
+keep <- filterByExpr(dae, design)
+dae <- dae[keep,,keep.lib.sizes=FALSE]
+dae <- calcNormFactors(dae)
+logCPM <- cpm(dae, log=TRUE, prior.count=2)
+
+df_dseq = melt(v$E, variable.name = "Samples", value.name = "count")# reshape the matrix 
+#df_dseq = melt(logCPM, variable.name = "Samples", value.name = "count")# reshape the matrix 
+df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
+mycolors <- colorRampPalette(brewer.pal(8,"Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Var2)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + xlim(-5, 25) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+```
+
+##### R-Squared ....... goodness of fit ####
+```{r}
+for (i in 1:66){
+   sst <- rowSums(v$E^2)
+   ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
+   Rsq<- (ssr/sst)
+}
+plot(1:66, Rsq)
+which(Rsq<0.90)
+
+summary(fit.cont$r.squared)
+```
+
+###Determining DE genes
+```{r}
+decide <- matrix(c("fdr",0.05,
+                   "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
+# initialize:
+mysum <- as.list(1:nrow(decide))
+mynum <- 0
+maxmax <- 0
+for (test in 1:nrow(decide)){
+   results<-decideTests(fit.cont,
+                        adjust.method=decide[test,1],
+                        p=as.numeric(decide[test,2]))
+   summary(results) -> mysum[[test]]
+   mynum[test] <-length(which(apply(results,1,function(x)any(x,na.rm=T))))
+   maxmax <- max(c(maxmax, as.vector(mysum[[test]][c(1,3),])))
+}
+par(mfrow=c(1,nrow(decide)))
+for (test in 1:nrow(decide))
+{
+   as.numeric(as.vector(mysum[[test]][3,]))->plotMe1
+   as.numeric(as.vector(mysum[[test]][1,]))->plotMe2
+   maxData = max(plotMe1)
+   maxData2 = max(plotMe2)
+   barplot(plotMe1,horiz=T,col="red",xlim=c(-maxmax,maxmax),
+           main=paste("Gene Changes \np<",decide[test,2], ", " , decide[test,1],
+                      " (" ,mynum[test] ,")",sep=""))->yy
+   barplot(-plotMe2,horiz=T,col="green",add=T)->yy
+   xx<-vector("integer",ncol(mysum[[test]]))
+   text(xx,yy,colnames(mysum[[test]]))
+   text((plotMe1+10)*0 + .9*maxData,yy+0.1,format(plotMe1,digits=3))
+   text((-plotMe2-10)*0 - .9*maxData2,yy+0.1,format(plotMe2,digits=3))
+}
+```
+
+#### DE Analysis using voom normalized counts
+```{r}
+results<-decideTests(fit.cont,adjust.method="none", p=0.025)
+summary(results)
+
+write.fit(fit.cont,file="IgA_Serum_DGE.csv",adjust="none",results=results, sep=',')
+fitObj <- read.csv("IgA_Serum_DGE.csv", header=T, row.names = 1)
+
+myNames<-names(fitObj)
+res.col<- which(regexpr("Res.",myNames)>0)
+DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
+length(DElist)
+
+fitObjDE <-fitObj[DElist,]
+write.csv(fitObjDE,file="IgA_Serum_Voom_Hits.csv", sep=',')
+fitObjDE$Autoantigen <- rownames(fitObjDE)
+
+mydata <- as.matrix(v$E)
+```
+
+#### Boxplots from voom normalized counts ####
+
+```{r Boxplots for Serum IgA DE Genes}
+chart_design <- theme(
+   plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=10), hjust=0.4),,
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "bottom",
+   axis.title.y = element_text(size=16, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=-0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+hits <- rownames(fitObjDE)
+Y=matrix(nrow=43,ncol=14)
+for (i in 1:43) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample[-1]
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain[-1]
+Y$Sample <- paste0(Y$Strain, c(2:5,1:4, 1:6))
+
+for (i in 1:28){
+   filename <- paste(hits[i],"IgA_Serum.tiff", sep="")
+   p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.7, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+      #scale_color_manual(values=c("black", "navy")) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Norm Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+   tiff(filename, units="in", width=3.8, height=3.7, res=300)
+   print(p)
+   dev.off()
+}
+```
+
+#### Combined Boxplot####
+
+```{r}
+fitObjDE$Autoantigen[which(fitObj$t.NTvBT>1)]
+Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.nTvBT>0 & fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT < 0.0001)])]
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:2)
+
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "bottom",
+   axis.title.y = element_text(size=18, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+tiff("Serum_IgA_hits.tiff", units="in", width=5.5, height=3.7, res=300)
+ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=4) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Normalized Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+dev.off()
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
