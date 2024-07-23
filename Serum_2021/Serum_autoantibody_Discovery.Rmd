@@ -288,23 +288,23 @@ bw.estG=unlist(apply(IgG_raw$NSI,1,r.bw))
 ### First Stage
 
 #enable to background correct
-IgG_raw$NSI <- as.matrix(IgG_NSI[,1:15]) #Not Excluding the Nod 33 week sample
-IgG_raw$SNR <- as.matrix(IgG_SNR[,1:15])
+IgG_raw$NSI <- as.matrix(IgG_NSI[,1:12]) #Not Excluding the Nod 33 week sample
+IgG_raw$SNR <- as.matrix(IgG_SNR[,1:12])
 IgG_raw$NSI=IgG_raw$NSI * IgG_raw$SNR ##NSI changed permanently
 IgG_raw$X_norm_1=IgG_raw$NSI
 eps=.10
-IgG_raw$QregFits=array(NA,dim=c(15,70))
+IgG_raw$QregFits=array(NA,dim=c(12,70))
 TriMn=RowTriMeans(IgG_raw$X_norm_1)
-ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,15),ncol=15)
+ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
 SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps)
 
 par(mfrow=c(2,2));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.5,0.25))
-plot(rep(TriMn,15),as.vector(ResMat),
+plot(rep(TriMn,12),as.vector(ResMat),
      xlim=quantile(TriMn,prob=c(0,.8)),
      ylim=quantile(as.vector(ResMat),prob=c(0.05,.95)),
      type="n",xlab="Raw Signal Tri-Mean",ylab="Raw Signal",
      main="IgG Raw Signal")
-for(j in 1:15){
+for(j in 1:12){
    points(TriMn,ResMat[,j],cex=0.5,pch=pchs[j],col=clrs[j])
    y=ResMat[,j]
    x=TriMn
@@ -328,15 +328,15 @@ IgG_raw$X_norm_1=IgG_raw$NSI #reinitializing
 for(i in 1:nitr){
    # snoop and grab invariants
    X=IgG_raw$X_norm_1
-   iWRS=function(i) t.test(X[i,1:6],X[i,7:15])$p.value
-   qMat=matrix(rep(mapply(iWRS,1:73),15),ncol=15)
+   iWRS=function(i) t.test(X[i,1:6],X[i,7:12])$p.value
+   qMat=matrix(rep(mapply(iWRS,1:73),12),ncol=12)
    qMat[which(is.na(qMat[,1])==T),] <- 0 #all NANs replaced by 0
    qcut=quantile(qMat[,1],prob=q.eps)
    TriMn=RowTriMeans(IgG_raw$X_norm_1)
-   ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,15),ncol=15)
+   ResMat=IgG_raw$X_norm_1-matrix(rep(TriMn,12),ncol=12)
    SubMat=abs(ResMat)<quantile(as.vector(abs(ResMat)),prob=1-eps) #all residuals with absolute values less than the cutoff of 90%
    SubMat[qMat<qcut]=FALSE #which p values are greater than the cutoffs
-   for(j in 1:15){
+   for(j in 1:12){
       y=ResMat[,j]
       x=TriMn
       fitj <- rq(y ~ x, tau = .5,subset=which(SubMat[,j]))
@@ -363,7 +363,7 @@ W_1=W_1-RW_MAT
 W=W_1
 bw.est=unlist(apply(W,2,r.bw))
 # now, rescale
-for(j in 1:15){
+for(j in 1:12){
    W_1[,j]=W_1[,j]/sqrt(bw.est[j])
 }
 
@@ -401,7 +401,7 @@ fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,pch=16,cex=0.5)
 abline(0,1)
-topTable(fit.cont,number=30,adjust="BH", coef=1)
+topTable(fit.cont,number=30,adjust="BH", p.value=0.05)
 
 #R-Squared ....... goodness of fit
 for (i in 1:73){
@@ -535,10 +535,10 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-mydata <- as.matrix(IgG_raw$W_1)[1:73,]
+mydata <- as.matrix(IgG_raw$W_1)[1:73,1:12]
 hits <- rownames(fitObjres)
-Y=matrix(nrow=30,ncol=12)
-for (i in 1:30) {
+Y=matrix(nrow=31,ncol=12)
+for (i in 1:31) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -551,30 +551,31 @@ Y$Group <- colData$Group
 Y$AGE <- c(rep("Young", 3), rep("Old", 3), rep("Young", 3), rep("Old", 3))
 Y$AGE <- as.factor(Y$AGE)
 
-hits <- colnames(Y)[1:30] #change only colnames so figure headings are meaningful
+hits <- colnames(Y)[1:26] #change only colnames so figure headings are meaningful
 
 #hits elements will form file names
-colnames(Y)[1] <- "B2GP"
+colnames(Y)[2] <- "B2GP"
 colnames(Y)[10] <- "IF"
 colnames(Y)[12] <- "KU (P70/P80)"
 colnames(Y)[13] <- "La/SSB"
-colnames(Y)[18] <- "Mito Antigen"
-colnames(Y)[23] <- "PM/Scl100"
-colnames(Y)[25] <- "RPP P2"
+colnames(Y)[17] <- "Mito Antigen"
+colnames(Y)[21] <- "PM/Scl100"
+colnames(Y)[23] <- "RPP P2"
 #colnames(Y)[20] <- "RPP P0"
 
 par(mfrow=c(2,5))
-for (i in 1:30){
+for (i in 1:26){
+   setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
    filename <- paste(hits[i], "IgG.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i])) +
       geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.40, coef=1, varwidth=F, show.legend = F, size=0.70, position = position_dodge(0.9) ) +
-     geom_jitter(aes(fill=AGE), pch=21,size=2,  position=position_jitterdodge(0.40)) +
+     geom_jitter(aes(fill=AGE), pch=21,size=2.5,  position=position_jitterdodge(0.40)) +
       scale_color_jco() +
      scale_fill_aaas() +
       guides(color="none") +
       theme_minimal() +
       chart_design +
-         ylab("Log Norm. Intensity")  + ylim(5.5,24.5) +
+         ylab("Log2 Norm Intensity")  + ylim(5.5,24.5) +
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_x_discrete("Strain", labels=c("BALB/c", "NOD"))
    tiff(filename, units="in", width=2.35, height=3.6, res=300)
@@ -586,7 +587,7 @@ for (i in 1:30){
 
 #### boxplot of old mice######
 ```{r}
-mydata <- as.matrix(IgG_raw$W_1)[1:70,]
+mydata <- as.matrix(IgG_raw$W_1)[1:73,1:12]
 hits <- rownames(fitObjres_old)
 Y=matrix(nrow=26,ncol=12)
 for (i in 1:26) {
@@ -604,28 +605,80 @@ Y$AGE <- as.factor(Y$AGE)
 
 #hits elements will form file names
 
-colnames(Y)[8] <- "KU (P70/P80)"
-colnames(Y)[9] <- "La/SSB"
-colnames(Y)[17] <- "PM/Scl100"
-colnames(Y)[19] <- "RPP P2"
-colnames(Y)[20] <- "RPP P0"
+colnames(Y)[10] <- "KU (P70/P80)"
+colnames(Y)[11] <- "La/SSB"
+colnames(Y)[19] <- "PM/Scl100"
+colnames(Y)[21] <- "RPP P2"
+colnames(Y)[22] <- "RPP P0"
 
 #Y=Y[c(4:6, 10:12),]
 par(mfrow=c(2,5))
 for (i in 1:26){
-   filename <- paste(hits[i], "Serum.IgG.tiff", sep="")
+   setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
+   filename <- paste(hits[i], "IgG.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i])) +
-      geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.4, coef=1, varwidth=F, show.legend = F, size=0.5) +
-     geom_jitter(aes(fill=AGE), size=2, pch=21, width = 0.25) +
+      geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = F, size=0.5) +
+     geom_jitter(aes(fill=AGE), size=2.5, pch=21, width = 0.25) +
       scale_color_jco() +
      scale_fill_aaas() +
       theme_minimal() +
       chart_design +
-         ylab("Log Normalized Intensity")  + 
+         ylab("Log2 Norm Intensity")  + 
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_x_discrete("Strain", labels=c("BALB/c", "NOD")) + 
-     ylim(5.5,27.5) + guides(color="none")
-   tiff(filename, units="in", width=3.2, height=3.25, res=300)
+     ylim(5.5,24.5) + guides(color="none")
+   tiff(filename, units="in", width=2.35, height=3.6, res=300)
+   print(p)
+   dev.off()
+}
+```
+
+
+#### Boxplots of Age ###
+
+```{r}
+
+fitObjAge <- fitObj[which(fitObj$P.value.Age < 0.05 ), ]
+mydata <- as.matrix(IgG_raw$W_1)[1:73,1:12]
+hits <- rownames(fitObjAge)
+Y=matrix(nrow=5,ncol=12)
+for (i in 1:5) {
+   Y[i,] <- mydata[hits[i],]
+}
+rownames(Y) <- hits
+colnames(Y) <- colData$Sample
+
+Y <- as.data.frame(t(Y))
+Y$Strain <- colData$Strain
+Y$Age <- colData$Age
+Y$Group <- colData$Group
+Y$AGE <- c(rep("Young", 3), rep("Old", 3), rep("Young", 3), rep("Old", 3))
+Y$AGE <- as.factor(Y$AGE)
+Y$AGE <- relevel(Y$AGE, ref="Young")
+#hits elements will form file names
+
+colnames(Y)[2] <- "Gly Albumin"
+colnames(Y)[3] <- "PM/Scl100"
+colnames(Y)[4] <- "Ro/SSA 52"
+
+#Y=Y[c(4:6, 10:12),]
+par(mfrow=c(2,5))
+for (i in 1:5){
+   setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
+   filename <- paste(hits[i], "Age.IgG.tiff", sep="")
+   p<- ggplot(Y, aes(x=AGE, y=Y[,i])) +
+      geom_boxplot(aes(color=AGE), outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = F, size=0.5) +
+     geom_jitter(aes(fill=Strain), size=2.5, pch=21, width = 0.25) +
+      scale_fill_jco() +
+     scale_color_aaas() +
+      theme_minimal() +
+      chart_design +
+         ylab("Log2 Norm Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      #scale_x_discrete("Strain", labels=c("BALB/c", "NOD")) + 
+     #ylim(1.5,24) + 
+      guides(color="none")
+   tiff(filename, units="in", width=2.35, height=3.9, res=300)
    print(p)
    dev.off()
 }
@@ -691,91 +744,6 @@ rownames(RnkSmplW_1) <- rownames(IgG_raw$W_1)
 pheatmap(RnkSmplW_1,annCol=factor(colData$Strain),main="Rank-it (Across Samples) Normalized Signal IgG",dist="euclidean",hclust="ward")
 #dev.off()
 ```
-
-```{r Scaling, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-par(mfrow=c(1,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.75,1.5))
-# get resids..
-W_1G=IgG_raw$W_1
-RWG=RowTriMeans(W_1G)
-# get residual matrices
-RWG_MAT=matrix(rep(RWG,dim(W_1G)[2]),ncol=dim(W_1G)[2])
-res_1G=W_1G-RWG_MAT
-
-# diagnostic.. check for comp hybrid effects..
-smoothScatter(as.vector(rbind(res_1G,res_1G)))  
-
-ResG=res_1G[,1]
-for(j in 2:12){
-   ResG=cbind(ResG,res_1G[,j])
-}
-spD_G=as.dist(1-cor(ResG,method="spearman"))
-
-cmdG=cmdscale(spD_G,k=2)
-
-rownames(cmdG)=as.character(c(paste(rep("B",6),rep(c(8,28), each=3)), paste(rep("N",6),rep(c(8,24), each=3))))
-
-plot(cmdG[,1],cmdG[,2],type="n",axes=F,xlab="",ylab="",
-     main="Metric Multidimensional Scaling: IgG",cex.main=1)
-axis(1);axis(2)
-for(i in 1:6){
-   i1=2*i-1 ; i2=2*i
-   lines(cmdG[c(i1,i2),1],cmdG[c(i1,i2),2],col=clrs[i])
-   text(cmdG[i1,1],cmdG[i1,2],col=clrs[i],rownames(cmdG)[i1],cex=3/4)
-   text(cmdG[i2,1],cmdG[i2,2],col=clrs[i],rownames(cmdG)[i2],cex=3/4)
-}
-```
-
-
-######## Differential Expression 
-
-#Wilcoxon Rank Sum tests were utilized to formally test for differential autoantigen expression (with respect to NOD.B10 versus BL/10 animals). P-values were adjusted by the method of Benjamini and Hochberg [@bh1995] and the corresponding "q-values" are reported. Given the discrete nature of the underlying p-value distribution, the Benjamini and Hochberg FDR estimates can be considered as conservative.  The more liberal mid-P [@heller2011false] modified Benjamini and Hochberg q-values were also calculated and are reported (although, the control of FDR for that approach is not strictly guaranteed).
-
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-par(mfrow=c(2,1));par(mgp=c(1.5,.5,0));par(mar=c(2.75,2.75,1.75,0.25))
-
-#====================================================#
-# Code for IgG
-#====================================================#
-
-W=IgG_raw$W_1
-RTM=rank(RowTriMeans(W_1))/13
-
-#### all balbs vs all NODs ######
-
-#packageurl <- "http://cran.nexr.com/src/contrib/discreteMTP_0.1-2.tar.gz"
-#install.packages(packageurl, repos=NULL, type="source")
-library(discreteMTP) #function p.discrete.adjust uses this package
-iWRS=function(i) wilcox.test(W[i,1:6],W[i,7:12])$p.value
-myWRS=mapply(iWRS,1:70)
-myQ=p.adjust(myWRS,method="BH")
-pCDFlist=list(2*((1:151)/252))
-for(i in 2:70) pCDFlist=c(pCDFlist,list(pCDFlist[[1]]))
-myQ.disc=p.discrete.adjust(myWRS, pCDFlist, method = "BHmidp")
-
-# order the features by statistical significance
-odx=order(myWRS)
-# compute HC scores
-hcG=hc.score(myWRS)
-# determine HC threshold
-hcGcut=hc.thresh(myWRS)
-title("Higher Critcism Decision Threshold: IgG")
-hcDX=which(myWRS[odx]<=hcGcut)
-out=cbind(myWRS,myQ,myQ.disc,hcG,RTM)
-rownames(out)=rownames(W)
-colnames(out)=c("p-value","q-value (BH)","q-values (BH midP)","HC score","Tri-Mean rank-it")
-out=out[odx,]
-#cat("\n AutoAntigen IgG Differential Expression",fill=T)
-#print(out[hcDX,])
-DE.IgGi=which(myWRS<0.025)
-# make table
-tblGi=round(out[hcDX,],4)
-
-```
-
-```{r}
-
-```
-
 
 
 ```{r}
