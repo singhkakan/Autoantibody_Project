@@ -384,10 +384,10 @@ for (i in 1:18){
 #### Combined Boxplot####
 
 ```{r}
-fitObjDE$Autoantigen[which(fitObj$t.NTvBT>1)]
-Y_combined <- Y[,c(fitObjDE$Autoantigen[which(fitObjDE$t.nTvBT>0 & fitObjDE$t.NTvBT>0 & fitObjDE$P.value.nTvBT < 0.01)])]
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.05 & NTvnTvBT$adj.P.Val.y < 0.05 & NTvnTvBT$logFC.x>1.5 & NTvnTvBT$logFC.y>1.5)])]
+
 Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:2)
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
 
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
@@ -402,11 +402,12 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-tiff("Serum_IgA_hits.tiff", units="in", width=5.5, height=4, res=300)
+tiff("Serum_IgG_hits.tiff", units="in", width=5.5, height=4, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=4) +
+   facet_wrap(~Antigen, ncol=2) +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
@@ -450,7 +451,6 @@ rownames(IgG_SNR) <- IgG_SNR$Antigen_ID
 
 IgG_NSI <- IgG_NSI[,-c(1, 17)]
 IgG_SNR <- IgG_SNR[,-c(1, 17)]
-
 ```
 
 #####Setting up column metadata ###
@@ -467,18 +467,23 @@ colData$Strain <- factor(colData$Strain)
 ```
 
 #####Filtering Data based on low Signal to Noise ratio
-```{r Filtering rows with SNR<2.4}
+```{r Filtering rows with SNR<3}
 IgG_raw=list()
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 
-IgG_raw$NSI <- as.matrix(IgG_NSI[which(IgG_SNR$med>2.4),])
-IgG_raw$SNR <- as.matrix(IgG_SNR[which(IgG_SNR$med>2.4),])[,1:15]
+IgG_NSI$average <- rowMeans(IgG_NSI)
+IgG_NSI$med <- rowMedians(as.matrix(IgG_NSI))
+
+IgG_raw$NSI <- as.matrix(IgG_NSI[which(IgG_NSI$med>50 & IgG_SNR$med>2),])[,1:15]
+IgG_raw$SNR <- as.matrix(IgG_SNR[which(IgG_NSI$med>50 & IgG_SNR$med>2),])[,1:15]
+IgG_raw$Ab_Score <- as.matrix(log2((IgG_raw$NSI*IgG_raw$NSI) + 1))
+
 ```
 
 #####Visualizing Filtered Data ####
 ```{r}
-dataN <- log2(IgG_NSI * IgG_SNR[,1:15] + 0.5) 
+dataN <- log(IgG_raw$NSI * IgG_raw$SNR + 1) 
 countData = as.data.frame(dataN)
 
 df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
@@ -493,97 +498,106 @@ ggplot(df_dseq, aes(x = count, color=Samples)) +
    guides(fill="none")
 ```
 
-There do not appear to be any outliers
+There does not appear to be any extreme outliers
 
 #####Boxplots of raw and SNR based Filtered Data ####
 
 ```{r}
 boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
 
-dataN <- (IgG_NSI * IgG_SNR[,1:15] ) 
+dataN <- (IgG_raw$Ab_Score) 
 countData = as.data.frame(dataN)
 boxplot(as.data.frame((dataN)),main="NSI*SNR")
 
-dataN <- log(IgG_raw$NSI * IgG_raw$SNR +0.5) 
+dataN <- log(cpm(IgG_raw$NSI * IgG_raw$SNR)+0.5)
 countData = as.data.frame(dataN)
 boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
 
-dataN <- log2(IgG_raw$NSI + 0.5) 
+dataN <- log(IgG_raw$NSI*1000/colSums(IgG_raw$NSI) + 1.05) 
 countData = as.data.frame(dataN)
 boxplot(as.data.frame((dataN)),main="NSI")
-```
 
+dataN <- (IgG_raw$Ab_Score*1000)/colSums(IgG_raw$Ab_Score) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)),main="Intensity Normalized NSI")
+```
+We see global differences between groups, with BALB/c medians being lower than both NOD and NOR.
 
 #####Limma Based Normalization##
 ```{r}
-library(limma)
-dataN <- log(IgG_raw$NSI * IgG_raw$SNR + 0.5) 
-mydata <- as.matrix(dataN)
-
 conditions<- paste(colData$Strain,sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
-plot.new()
-fit <- lmFit(mydata, design, plot=TRUE)
+
+library(limma)
+dataN <- log((IgG_raw$NSI*IgG_raw$SNR*1000000)/colSums(IgG_raw$NSI*IgG_raw$SNR)+1)
+plotMD(dataN) #
+fit <- lmFit(dataN, design, plot=TRUE)
+plotMD(fit, column=1)
 
 cont.matrix<- makeContrasts(
    NTvBT =  NOD - BALBc,
    nTvBT = NOR - BALBc,
    levels = design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
-fit.cont<- eBayes(fit.cont, trend=TRUE)
-topTable(fit.cont, number=30)
-fit.cont<- contrasts.fit(fit, cont.matrix)
-fit.cont<- eBayes(fit.cont)
+fit.cont<- eBayes(fit.cont, robust=TRUE)
 
-NTvsBT <- topTable(fit.cont, coef=1, number=45, adjust.method = 'BH')
-nTvsBT <- topTable(fit.cont, coef=2, number=45, adjust.method = 'BH')
+topTable(fit.cont, number=30)
+
+NTvsBT <- topTable(fit.cont, coef=1, number=30, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, number=30, adjust.method = 'BH')
 NTvsBT$Antigen <- row.names(NTvsBT)
 nTvsBT$Antigen <- row.names(nTvsBT)
 NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
 rownames(NTvnTvBT) <- NTvnTvBT$Antigen
 NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
-NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.05 & NTvnTvBT$adj.P.Val.y < 0.05)),]
+   NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.05 & NTvnTvBT$adj.P.Val.y < 0.05)),]
+plotMA(res)
 write.csv(NTvnTvBT, file="NTvnTvBT_Serum_IgG.csv", sep=',')
-v$E["PM Scl100",]
 
 ```
 
+QC Plots
 
 ```{r}
-plotMA((IgG_raw$NSI * IgG_raw$SNR + 1))
+plotMD(fit)
+plotMD(fit.cont)
+plotMDS(fit, col=as.numeric(Strain))
 plotMDS(fit)
 plotMA(fit)
 plotMA(fit.cont, coef=1)
 plotMA(fit.cont, coef=2)
 #plot.new()
-qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+qqnorm(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+
 ```
 
 
-Quantile Normalization is over-normalizing this dataset. Therefore we will do a simple log2 Normalization followed by limma based DE analysis. 
+Quantile Normalization is over-normalizing this dataset. Therefore we will do a simple log2 Normalization followed by limma based DE analysis.
+
+Library Normalization appears to be the best recourse
 #####Voom Normalization After Removing outliers ####
 
 ```{r Voom After removing outlier samples}
 
 ###### Voom normalization with quantiles
-conditions<- paste(colData$Strain,sep=".")
+conditions<- paste(colData$Strain[-1],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
-
-v <- voom(counts=(IgG_raw$NSI*IgG_raw$SNR+1), design, plot=TRUE, normalize="scale")
+block <- as.factor(c(rep("N",9), rep("B",6)))
+v <- voom(counts=exp(dataN[,-1]), design, plot=TRUE, normalize="cyclicloess")
 
 #v <- voom(dae, design, plot=TRUE)
-fit <- lmFit(v, design)
+fit <- lmFit(v, design, method="robust")
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
-topTable(fit.cont, number=30)
+topTable(fit.cont, number=40)
 #topTable(fit, coef=ncol(design))
 
 
-plotMDS(v,col=as.numeric(Strain))
+plotMDS(v,col=as.numeric(Strain[-1]))
 plot.new()
 plotMA(fit.cont, coef=1)
 plotMD(fit.cont, col=2)
@@ -597,20 +611,13 @@ plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
 
 #####Density plots post voom normalization ####
 ```{r Density plots}
-dae <- DGEList(counts=(IgG_raw$NSI * IgG_raw$SNR + 1))
-keep <- filterByExpr(dae, design)
-dae <- dae[keep,,keep.lib.sizes=FALSE]
-dae <- calcNormFactors(dae)
-logCPM <- cpm(dae, log=TRUE, prior.count=0)
-
-#df_dseq = melt(dae$counts, variable.name = "Samples", value.name = "count")# reshape the matrix 
-df_dseq = melt(log(dae$counts), variable.name = "Samples", value.name = "count")# reshape the matrix 
+df_dseq = melt(dataN, variable.name = "Samples", value.name = "count")# reshape the matrix 
 df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
 mycolors <- colorRampPalette(brewer.pal(8,"Set1"))(15)
 
 ggplot(df_dseq, aes(x = count, color=Var2)) + 
    geom_density(alpha = 0.5, size = 0.8) + 
-   facet_wrap(~Strain, ncol=2) +
+   #facet_wrap(~Strain, ncol=2) +
    theme_minimal() + xlim(-5, 25) +
    scale_colour_manual(values=mycolors, name="") +
    guides(fill="none")
@@ -665,7 +672,7 @@ for (test in 1:nrow(decide))
 
 #####DE Analysis using voom normalized counts
 ```{r}
-results<-decideTests(fit.cont,adjust.method="fdr", p=0.1)
+results<-decideTests(fit.cont,adjust.method="fdr", p=0.05)
 summary(results)
 
 write.fit(fit.cont,file="IgG_Serum_DGE.csv",adjust="none",results=results, sep=',')
@@ -679,11 +686,11 @@ DElist<- which(apply(fitObj[,res.col],1,function(x)any(x,na.rm=T)))
 length(DElist)
 
 fitObjDE <-fitObj[DElist,]
-write.csv(fitObjDE,file="IgG_Serum_Voom_Hits.csv", sep=',')
+write.csv(fitObjDE,file="IgG_Serum_Limma_Hits.csv", sep=',')
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 ```
 
-#### Boxplots from voom normalized counts ####
+##### Boxplots from voom normalized counts ####
 
 ```{r Boxplots for Serum IgG DE Genes}
 chart_design <- theme(
@@ -698,10 +705,11 @@ chart_design <- theme(
    strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=-0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
-mydata <- as.matrix(log2(IgG_raw$NSI*IgG_raw$SNR +1))
+
+mydata <- as.matrix(dataN)
 hits <- rownames(NTvnTvBT)
-Y=matrix(nrow=37,ncol=15)
-for (i in 1:37) {
+Y=matrix(nrow=12,ncol=15)
+for (i in 1:12) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -710,7 +718,7 @@ Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
 Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:6))
 
-for (i in 1:37){
+for (i in 1:12){
    setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
    filename <- paste(hits[i],"IgG_Serum.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
@@ -719,11 +727,47 @@ for (i in 1:37){
       #scale_color_manual(values=c("black", "navy")) +
       theme_minimal() +
       chart_design +
-      ylab("Log2 Norm Intensity")  + 
+      ylab("Log Norm Intensity")  + 
       labs(title=colnames(Y[i]), hjust=0.5) +
-      scale_fill_jco() + ylim(0.5,19)
+      scale_fill_jco() + ylim(0,14)
    tiff(filename, units="in", width=3.8, height=4.7, res=300)
    print(p)
    dev.off()
 }
 ```
+
+#####Combined Boxplots ####
+```{r}
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.05 & NTvnTvBT$adj.P.Val.y < 0.05 & NTvnTvBT$logFC.x>1.75 & NTvnTvBT$logFC.y>1.75)])]
+
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
+
+
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
+   axis.text.x = element_text(size=14),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "bottom",
+   axis.title.y = element_text(size=18, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+tiff("Serum_IgG_hits.tiff", units="in", width=8, height=6, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=4) +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Normalized Intensity")  + 
+      labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+dev.off()
+```
+
