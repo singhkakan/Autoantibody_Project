@@ -190,6 +190,7 @@ qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 #### Voom Normalization After Removing outliers
 ```{r}
 #After removing outlier samples
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
 
 ###### Voom normalization with quantiles
 conditions<- paste(colData$Strain[-15],sep=".")
@@ -297,7 +298,8 @@ for (test in 1:nrow(decide))
 ```
 #### DE Analysis using voom normalized counts
 ```{r}
-results<-decideTests(fit.cont,adjust.method="none", p=0.005)
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+results<-decideTests(fit.cont,adjust.method="none", p=0.05)
 summary(results)
 
 write.fit(fit.cont,file="IgA_Tears_DGE.csv",adjust="none",results=results, sep=',')
@@ -345,7 +347,8 @@ Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain[-15]
 Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
 
-for (i in 1:43){
+for (i in 1:39){
+   setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/')
    filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
@@ -379,10 +382,10 @@ chart_design <- theme(
 
 Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.06 & NTvnTvBT$adj.P.Val.y < 0.06 & NTvnTvBT$logFC.x>0)])]
 Y_combined[,14:15] <- Y[,c("IF", "La SSB")]
-Y_combined[,16:17] <- Y[,40:41]
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
 Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:15)
-Y_combined$Strain[which(Y_combined$Strain=="BALBc")] <- ("BALB/c")
 
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
 tiff("Tear_IgA_hits.tiff", units="in", width=10.5, height=9, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = F, size=0.9, position = position_dodge(0.9)) +
@@ -391,6 +394,7 @@ ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
+   scale_x_discrete("Strain", labels=c("BALB/c", "NOD", "NOR")) +
       labs(title=factor(Y_combined$Antigen), hjust=0.5) +
       scale_fill_jco()
 dev.off()
@@ -398,10 +402,11 @@ dev.off()
 
 
 
-##### Code for Comparing Tear IgG and IgA  ##################
+#### Code for Comparing Tear IgG and IgA ####
 ```{r}
-Tear_IgAhits <- read.csv("IgA_Tears_Voom_Hits.csv", header=T)
-Tear_IgGhits <- read.csv("IgG_Tears_Voom_Hits.csv", header=T)
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+Tear_IgAhits <- read.csv("NTvnTvBT_Tear_IgA.csv", header=T)
+Tear_IgGhits <- read.csv("NTvnTvBT_Tear_IgG.csv", header=T)
 
 Tear_Ig <- full_join(Tear_IgAhits[,c(1,5,6,7,8)], Tear_IgGhits[,c(1,5,6,7,8)], by="X")
 

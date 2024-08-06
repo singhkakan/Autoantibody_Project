@@ -4,7 +4,7 @@ author: "Shruti Kakan"
 date: "2024-07-01"
 output: html_document
 ---
-
+####Reading in Libraries###
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -188,7 +188,7 @@ qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 #### Voom Normalization After Removing outliers (BALB/c M6)
 ```{r}
 #After removing outlier samples
-
+setwd("/Users/shrutisinghkakan/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
 ###### Voom normalization with quantiles
 conditions<- paste(colData$Strain[-15],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
@@ -197,7 +197,7 @@ colnames(design) <- levels(conditions)
 
 v <- voom(counts=(IgG_raw$NSI[,-15]*IgG_raw$SNR[,-15]+0.5), design, plot=TRUE, normalize="quantile")
 #v <- voom(dae, design, plot=TRUE)
-fit <- lmFit(v, design)
+fit <- lmFit(v, design, robust=TRUE)
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 topTable(fit.cont)
@@ -213,7 +213,7 @@ rownames(NTvnTvBT) <- NTvnTvBT$Antigen
 which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)
 NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
 NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)),]
-write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgG.csv", sep=',')
+write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgG.csv")
 ```
 
 ```{r Voom Analysis QC plots}
@@ -380,19 +380,20 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.06 & NTvnTvBT$adj.P.Val.y < 0.06 & NTvnTvBT$logFC.x>0)])]
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.08 & NTvnTvBT$adj.P.Val.y < 0.08 & NTvnTvBT$logFC.x>0)])]
 Y_combined[,8:9] <- Y[,34:35]
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:15)
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:7)
 
 tiff("Tear_IgG_hits.tiff", units="in", width=11.5, height=8, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
-      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = T, size=0.7, position = position_dodge(0.9)) +
-      geom_jitter(color = "darkgray", alpha =0.7, size=2.2, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=5) +
+      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = F, size=0.9, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=3, scales="free_x") +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
-      labs(title=colnames(Y[i]), hjust=0.5) +
+   scale_x_discrete("Strain", labels=c("BALB/c", "NOD", "NOR")) +
+      labs(title=factor(Y_combined$Antigen), hjust=0.5) +
       scale_fill_jco()
 dev.off()
 ```

@@ -545,15 +545,15 @@ fit.cont<- eBayes(fit.cont, robust=TRUE)
 
 topTable(fit.cont, number=30)
 
-NTvsBT <- topTable(fit.cont, coef=1, number=30, adjust.method = 'BH')
-nTvsBT <- topTable(fit.cont, coef=2, number=30, adjust.method = 'BH')
+NTvsBT <- topTable(fit.cont, coef=1, number=36, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, number=36, adjust.method = 'BH')
 NTvsBT$Antigen <- row.names(NTvsBT)
 nTvsBT$Antigen <- row.names(nTvsBT)
 NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
 rownames(NTvnTvBT) <- NTvnTvBT$Antigen
 NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
    NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.05 & NTvnTvBT$adj.P.Val.y < 0.05)),]
-plotMA(res)
+
 write.csv(NTvnTvBT, file="NTvnTvBT_Serum_IgG.csv", sep=',')
 
 ```
@@ -582,22 +582,22 @@ Library Normalization appears to be the best recourse
 ```{r Voom After removing outlier samples}
 
 ###### Voom normalization with quantiles
-conditions<- paste(colData$Strain[-1],sep=".")
+conditions<- paste(colData$Strain[-c(1)],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
 block <- as.factor(c(rep("N",9), rep("B",6)))
-v <- voom(counts=exp(dataN[,-1]), design, plot=TRUE, normalize="cyclicloess")
+v <- voom(counts=exp(dataN[,-c(1)]), design, plot=TRUE, normalize="cyclicloess")
 
 #v <- voom(dae, design, plot=TRUE)
-fit <- lmFit(v, design, method="robust")
+fit <- lmFit(v, design, robust="TRUE")
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 topTable(fit.cont, number=40)
 #topTable(fit, coef=ncol(design))
 
 
-plotMDS(v,col=as.numeric(Strain[-1]))
+plotMDS(v,col=as.numeric(Strain[-c(1)]))
 plot.new()
 plotMA(fit.cont, coef=1)
 plotMD(fit.cont, col=2)
@@ -707,6 +707,7 @@ chart_design <- theme(
    strip.placement = "outside")
 
 mydata <- as.matrix(dataN)
+#mydata <- as.matrix(v$E)
 hits <- rownames(NTvnTvBT)
 Y=matrix(nrow=12,ncol=15)
 for (i in 1:12) {
@@ -729,7 +730,7 @@ for (i in 1:12){
       chart_design +
       ylab("Log Norm Intensity")  + 
       labs(title=colnames(Y[i]), hjust=0.5) +
-      scale_fill_jco() + ylim(0,14)
+      scale_fill_jco() #+ ylim(0,14)
    tiff(filename, units="in", width=3.8, height=4.7, res=300)
    print(p)
    dev.off()
@@ -746,23 +747,23 @@ Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
 
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
-   axis.text.x = element_text(size=14),
+   axis.text.x = element_text(size=13),
    axis.text.y = element_text(size=14),
    axis.title.x = element_blank(),
    legend.text = element_text(size=15),
    legend.title = element_blank(),
    legend.position = "bottom",
-   axis.title.y = element_text(size=18, margin = margin(r = 5)),
-   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=0.4),
+   axis.title.y = element_text(size=17, margin = margin(r = 5)),
+   strip.text.x = element_text(size =15, margin = margin(b=10), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-tiff("Serum_IgG_hits.tiff", units="in", width=8, height=6, res=300)
+tiff("Serum_IgG_hits.tiff", units="in", width=8.5, height=6.5, res=300)
 setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=4) +
+   facet_wrap(~Antigen, ncol=4, scales="free_x") +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
