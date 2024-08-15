@@ -165,10 +165,10 @@ boxplot(as.data.frame((dataN)),main="NSI")
 #Limma Based Quantile Normalization
 ```{r}
 library(limma)
-dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5)[,-15]
 mydata <- as.matrix(dataN)
 
-conditions<- paste(colData$Strain,sep=".")
+conditions<- paste(colData$Strain[-15],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
@@ -184,6 +184,7 @@ fit.cont<- eBayes(fit.cont)
 plot.new()
 plotMD(fit.cont, col=2)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(fit)
 ```
 
 
@@ -229,7 +230,6 @@ plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
 
 ```{r}
 #Density plots
-
 dae <- DGEList(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5))
 keep <- filterByExpr(dae, design)
 dae <- dae[keep,,keep.lib.sizes=FALSE]
@@ -260,7 +260,7 @@ summary(fit.cont$r.squared)
 ```
 
 
-The BALB/c sample 6 was  removed
+The BALB/c sample 6 was removed
 
 ###Determining DE genes
 ```{r}
@@ -332,10 +332,12 @@ chart_design <- theme(
 
 mydata <- as.matrix(v$E)
 hits <- rownames(NTvnTvBT)
+hits[(length(hits)+1)] <- "Ro SSA 52"
+#hits[(length(hits)+1)] <- "RoSSA 60"
 
-Y=matrix(nrow=39,ncol=14)
+Y=matrix(nrow=40,ncol=14)
 
-for (i in 1:39) {
+for (i in 1:40) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -345,7 +347,8 @@ Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain[-15]
 Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
 
-for (i in 1:43){
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
+for (i in length(hits)){
    filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +

@@ -78,7 +78,7 @@ colData0$Age <- relevel(colData0$Age, ref='8wks')
 ```{r Visualization, message=FALSE, warning=FALSE, paged.print=FALSE}
 #Boxplot of raw Signal Distribution, not normalized
 
-mydata<-as.matrix(log2(data+0.5))
+mydata<-as.matrix(log(data/IgG_SNR[,1:15]+0.5))
 
 boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
 ```
@@ -89,8 +89,8 @@ boxplot(as.data.frame(mydata),main="Signal distribution, Not normalized",xlab="S
 matcor<-cor(mydata)
 range(as.vector(matcor))
 
-strain<-as.character(as.numeric(colData$Strain))
-age<-as.character(as.numeric(colData$Age))
+strain<-as.character(as.numeric(colData0$Strain))
+age<-as.character(as.numeric(colData0$Age))
 
 library(gplots)
 heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,
@@ -105,7 +105,7 @@ dataN <- mydata
 boxplot(as.data.frame(log2(dataN+0.5)),main="Signal distribution, Not normalized",xlab="Samples",ylab="Log2 Intensity",cex=0.8)
 
 library(matrixStats) #for function rowmedians
-IgG_SNR <- read.csv("../../3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
+IgG_SNR <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/IgG_MCF_SNR.csv",  header=T, row.names = 1)[,1:15]
 IgG_SNR$average <- rowMeans(IgG_SNR)
 IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR))
 mydata <- data[which(IgG_SNR$average>3),] #filtering rows with high noise (i.e., rows with Signal to Noise Ratio or SNR > 3)
@@ -121,13 +121,13 @@ plotMDS(log2(dataN+0.5))
 mm <- model.matrix(~0 + Group)
 y <- voom((dataN), mm, plot = T)
 
-countData = as.data.frame(dataN)
+countData = as.data.frame(y$E)
 
 df_dseq = melt(countData, variable.name = "Samples", value.name = "count") # reshape the matrix 
 df_dseq = data.frame(df_dseq, Condition = substr(df_dseq$Samples,1,1))
 mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(13)
 
-ggplot(df_dseq, aes(x = log10(count+0.5), colour = Samples, fill = Samples)) + 
+ggplot(df_dseq, aes(x = (count), colour = Samples, fill = Samples)) + 
    geom_density(alpha = 0, size = 0.8) + 
    facet_wrap(~Condition, ncol=3) #+
    #theme_minimal() + xlim(-1.5,6) +
@@ -138,8 +138,8 @@ ggplot(df_dseq, aes(x = log10(count+0.5), colour = Samples, fill = Samples)) +
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 matcor<-cor(dataN)
 range(as.vector(matcor))
-strain<-as.character(as.numeric(colData$Strain))
-age<-as.character(as.numeric(colData$Age))
+strain<-as.character(as.numeric(colData0$Strain))
+age<-as.character(as.numeric(colData0$Age))
 heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,RowSideColors=age, cexCol=1,cexRow=1,labCol="")
 ```
 
@@ -147,7 +147,7 @@ heatmap.2(matcor,trace="none",col=heat.colors(40),ColSideColors=strain,RowSideCo
 ```{r DGE using Limma lmFit, message=FALSE, warning=FALSE, paged.print=FALSE}
 #mydata <- as.matrix((data+0.5))
 
-conditions<- paste(colData$Strain[1:12], colData$Age[1:12],sep=".")
+conditions<- paste(colData0$Strain[1:12], colData0$Age[1:12],sep=".")
 
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
@@ -161,7 +161,7 @@ colnames(design) <- levels(conditions)
 #   N33vN24 = NOD.33wks - NOD.24wks,
 #   levels = design)
 #Introducing new contrasts by removing the 33 week old samples.
-fit <- lmFit(dataN[,1:12], design)
+
 cont.matrix<- makeContrasts(
 B8vsN8 = NOD.8wks - BALBc.8wks,
 B28vN24 = NOD.24wks - BALBc.28wks,
@@ -169,9 +169,16 @@ N24vN8 = NOD.24wks - NOD.8wks,
 B28vB8 = BALBc.28wks - BALBc.8wks,
 levels = design)
 
+v <- voom(counts=((mydata[,1:12]+0.01)), design, plot=TRUE)
+fit <- lmFit(v, design, robust=TRUE)
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 
+
+```
+
+
+```{r Deciding test}
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
 mysum <- as.list(1:nrow(decide))
@@ -204,13 +211,24 @@ for (test in 1:nrow(decide))
 ```
 
 
+```{r Limma Analysis QC plots}
+plotMDS(fit.cont,col=as.numeric(Strain))
+plot.new()
+plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+```
+
+
 ```{r DGE Results using Limma, message=FALSE, warning=FALSE, paged.print=FALSE}
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
 results<-decideTests(fit.cont,adjust.method="none", p=0.01)
 summary(results)
 write.fit(fit.cont,file="IgG_DGE_Limma_fit.csv",adjust="none",results=results, sep=',')
 fitObj <- read.csv("IgG_DGE_Limma_fit.csv", header=T, row.names = 1)
 
-toptable1 <- topTable(fit.cont, coef=2, adjust.method="none", p=0.01, sort.by = "P", n = Inf)
+toptable1 <- topTable(fit.cont, adjust.method="none", p=0.01, number = 30)
 write.csv(toptable1,file="IgG_DGE_Limma_fitII.csv")
 
 myNames<-names(fitObj)
@@ -391,18 +409,38 @@ summary(fit)
 
 cont.matrix<- makeContrasts(
    B8vsN8 = NOD.8wks - BALBc.8wks,
-   B28vB8 = BALBc.28wks - BALBc.8wks,
    B28vN24 = NOD.24wks - BALBc.28wks,
-   N24vN8 = NOD.24wks - NOD.8wks,
-   Age = (NOD.24wks + BALBc.28wks)- (NOD.8wks+BALBc.8wks), 
+   BvsN = (NOD.24wks+NOD.8wks) - (BALBc.28wks+BALBc.8wks),
+   Age = (NOD.24wks+BALBc.28wks) - (NOD.8wks+BALBc.8wks),
    levels = design)
 
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual,pch=16,cex=0.5)
 abline(0,1)
-topTable(fit.cont,number=30,adjust="BH", p.value=0.05)
+abline(0,2)
+TopTable <- topTable(fit.cont,number=30,adjust="BH", p.value=0.05)
 
+B8vsN8 <- topTable(fit.cont, coef=c("B8vsN8"), number=35, adjust="BH")
+B28vsN24 <- topTable(fit.cont, coef="B28vN24", number=55, adjust="BH")
+BvsN <- topTable(fit.cont, coef=c("BvsN"), number=35, adjust="BH")
+Age <- topTable(fit.cont, coef=c("Age"), number=50, adjust="BH")
+
+B8vsN8$Antigen <- row.names(B8vsN8)
+B28vsN24$Antigen <- row.names(B28vsN24)
+Age$Antigen <- row.names(Age)
+B8vN8_B28vN24 <- full_join(B8vsN8, B28vsN24, by="Antigen") %>%
+   full_join(Age, by="Antigen")
+rownames(B8vN8_B28vN24) <- B8vN8_B28vN24$Antigen
+#B8vN8_B28vN24[is.na(B8vN8_B28vN24)] <- 0.5
+#B8vN8_B28vN24 <- B8vN8_B28vN24[which(B8vN8_B28vN24$adj.P.Val.x < 0.15 & B8vN8_B28vN24$adj.P.Val.y < 0.15),]
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
+write.csv(B8vN8_B28vN24, file="B8vN8_B28vN24_IgG.csv", sep=',')
+write.csv(BvsN, file="AllBvsAllN.csv", sep=',')
+
+fit.cont.exp <- getEAWP(IgG_raw$W_1)[["exprs"]]
+qqnorm(fit.cont.exp, ylim=c(0,20))
+qqline(fit.cont.exp)
 #R-Squared ....... goodness of fit
 for (i in 1:73){
    sst <- rowSums(mydata^2)
@@ -522,6 +560,7 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/')
 
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/')
 chart_design <- theme(
    plot.title = element_text(color = "Black", size = 19, face = "bold", margin = margin(b=25), hjust=0.4),
    axis.text.x = element_text(size=15),
@@ -537,8 +576,11 @@ chart_design <- theme(
 
 mydata <- as.matrix(IgG_raw$W_1)[1:73,1:12]
 hits <- rownames(fitObjres)
-Y=matrix(nrow=31,ncol=12)
-for (i in 1:31) {
+hits[(length(hits)+1)] <- "Ro_SSA_52KDa"
+hits[(length(hits)+1)] <- "Ro_SSA_60KDa"
+
+Y=matrix(nrow=33,ncol=12)
+for (i in 1:33) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -551,7 +593,7 @@ Y$Group <- colData$Group
 Y$AGE <- c(rep("Young", 3), rep("Old", 3), rep("Young", 3), rep("Old", 3))
 Y$AGE <- as.factor(Y$AGE)
 
-hits <- colnames(Y)[1:26] #change only colnames so figure headings are meaningful
+hits <- colnames(Y)[1:33] #change only colnames so figure headings are meaningful
 
 #hits elements will form file names
 colnames(Y)[2] <- "B2GP"
@@ -562,11 +604,12 @@ colnames(Y)[17] <- "Mito Antigen"
 colnames(Y)[21] <- "PM/Scl100"
 colnames(Y)[23] <- "RPP P2"
 #colnames(Y)[20] <- "RPP P0"
-
+colnames(Y)[32] <- "Ro/SSA 52"
+colnames(Y)[33] <- "Ro/SSA 60"
 par(mfrow=c(2,5))
-for (i in 1:26){
+for (i in 1:33){
    setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/SerumAntibodies_2021/")
-   filename <- paste(hits[i], "IgG.tiff", sep="")
+   filename <- paste(hits[i], "_SerumIgG.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i])) +
       geom_boxplot(aes(color=Strain), outlier.shape = NA, width = 0.40, coef=1, varwidth=F, show.legend = F, size=0.70, position = position_dodge(0.9) ) +
      geom_jitter(aes(fill=AGE), pch=21,size=2.5,  position=position_jitterdodge(0.40)) +
@@ -575,7 +618,7 @@ for (i in 1:26){
       guides(color="none") +
       theme_minimal() +
       chart_design +
-         ylab("Log2 Norm Intensity")  + ylim(5.5,24.5) +
+         ylab("Log Norm Intensity")  + ylim(5.5,24.5) +
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_x_discrete("Strain", labels=c("BALB/c", "NOD"))
    tiff(filename, units="in", width=2.35, height=3.6, res=300)

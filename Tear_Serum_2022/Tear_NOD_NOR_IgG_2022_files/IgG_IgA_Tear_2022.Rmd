@@ -1,0 +1,280 @@
+---
+title: "Tear IgG vs IgA"
+author: "Shruti Kakan"
+date: "2024-08-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(car)
+library(lsmeans)
+library(calibrate)
+library(dplyr)
+#library(DEGreport)
+library(DESeq2)
+library(DEFormats)
+library(edgeR)
+library(ggpubr)
+library(ggsci)
+library(ggplot2)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(RColorBrewer)
+library(scales)
+library(rstatix)
+library(tidyr)
+library(magrittr)
+#library(PCAtools)
+library(tidyverse)
+library(Biobase)
+#library(marray)
+library(limma)
+library(gplots)
+#gYN6qesAeeNZkgkD
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+library(AutoAntArrayExmpl)
+
+library(devtools)
+#install_github("dpgaile/AutoAntArrayExmpl")
+#devtools::install_github('renozao/NMF@devel')
+library(AutoAntArrayExmpl)
+library(NMF)
+library(quantreg)
+library(asbio)
+library(fdrtool)
+#library(discreteMTP)
+library(scales)
+library(ggsci)
+library(ggplot2)
+
+```
+
+#Load IgG & IgA Tear Data
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+)
+
+setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
+IgG_NSI <- read.csv("IgG_MCF_SSK_546_Tear_NSI_nor.csv",  header=T)[1:80,]
+IgG_SNR <- read.csv("IgG_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:80,]
+IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+```
+
+
+#Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names, message=FALSE, warning=FALSE}
+#Adding Auto-antigen id names 
+Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
+
+#colnames(IgA_NSI)[1] <- colnames(Antigen_ID)[2]
+#colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
+
+Antigen_ID[68,"ID"] <- IgG_NSI[68,"ID"]
+IgG_NSI <- full_join(IgG_NSI, Antigen_ID, by="ID")
+IgG_SNR <- full_join(IgG_SNR, Antigen_ID, by="ID")
+rownames(IgG_NSI) <- IgG_NSI$Antigen_ID
+rownames(IgG_SNR) <- IgG_NSI$Antigen_ID
+
+IgG_NSI <- IgG_NSI[,-c(1, 17)]
+IgG_SNR <- IgG_SNR[,-c(1, 17)]
+
+IgA_NSI <- full_join(IgA_NSI, Antigen_ID, by="ID")
+IgA_SNR <- full_join(IgA_SNR, Antigen_ID, by="ID")
+rownames(IgA_NSI) <- IgA_NSI$Antigen_ID
+rownames(IgA_SNR) <- IgA_SNR$Antigen_ID
+
+IgA_NSI <- IgA_NSI[,-c(1, 17)]
+IgA_SNR <- IgA_SNR[,-c(1, 17)]
+
+IgA_NSI <- IgA_NSI + 1
+IgG_NSI <- IgG_NSI + 1
+```
+
+####Setting up column metadata
+```{r message=FALSE, warning=FALSE}
+
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+colData <- as.data.frame(cbind(c(colnames(IgG_NSI)), Strain))
+colnames(colData) <- c('Sample', "Strain")
+rownames(colData) <- colData$Sample
+colData$Strain <- factor(colData$Strain)
+colData$Strain <- relevel(colData$Strain, ref = "BALBc")
+Biofluid <- c( rep("Tear", each=15), rep("Serum", each=15))
+
+colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain, Biofluid))
+
+boxplot(as.data.frame((IgA_NSI)),main="IgG normalization")#,col=Sample)
+
+dataN <- cbind(log2(colSums(IgA_NSI+0.5)), log2(colSums(IgG_NSI+0.5)))
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)), main="Log2 NSI IgA & IgG", ylim(0.5,20))
+
+dataN <- log2(IgG_NSI+0.5) 
+countData = as.data.frame(dataN)
+boxplot(as.data.frame((dataN)), main="Log2 NSI IgG", ylim(0.5,20))
+
+```
+
+
+
+
+```{r}
+Ratio_IgG_IgA <- IgG_NSI/IgA_NSI
+Ratio_IgG_IgA[sapply(Ratio_IgG_IgA, is.infinite)] <- NA
+Ratio_IgG_IgA[is.na(Ratio_IgG_IgA)] <- 0
+
+```
+
+### Visualize raw data
+```{r}
+dataN <- log2(Ratio_IgG_IgA + 1) 
+countData = as.data.frame(dataN)
+
+df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Samples)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   #facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + xlim(-1.5,6) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+```
+
+```{r}
+
+```
+
+#Limma Based Quantile Normalization
+```{r}
+library(limma)
+dataN <- log2(Ratio_IgG_IgA +0.5) 
+mydata <- as.matrix(dataN)
+dae <- DGEList(counts=(Ratio_IgG_IgA), colData=colData[1:15,])
+#keep <- filterByExpr(dae, design)
+#dae <- dae[keep,,keep.lib.sizes=TRUE]
+#dae <- calcNormFactors(dae)
+#logCPM <- cpm(dae, log=TRUE, normalized.lib.sizes=FALSE)
+
+conditions<- paste(colData$Strain[1:15],sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~conditions)
+colnames(design) <- levels(conditions)
+fit <- lmFit(mydata, design)
+
+cont.matrix<- makeContrasts(
+   NTvBT =  NOD - BALBc,
+   nTvBT = NOR - BALBc,
+   levels = design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont, robust=TRUE, proportion=0.5)
+
+plot.new()
+plotMD(fit.cont, col=2)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(fit.cont, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+```
+
+```{r}
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=45, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=45, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
+NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.1 & NTvnTvBT$adj.P.Val.y < 0.1)),]
+write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgA.csv", sep=',')
+
+```
+
+
+#### Voom Normalization After Removing outliers
+```{r}
+#After removing outlier samples
+
+###### Voom normalization with quantiles
+conditions<- paste(colData$Strain[c(1:7,9:15)],sep=".")
+conditions <- factor(conditions, levels=unique(conditions))
+design <- model.matrix(~0+ conditions)
+colnames(design) <- levels(conditions)
+
+v <- voom(counts=(Ratio_IgG_IgA[,c(1:7,9:15)]+0.5), design, plot=TRUE, normalize="quantile")
+#v <- voom(dae, design, plot=TRUE)
+fit <- lmFit(v, design)
+fit.cont<- contrasts.fit(fit, cont.matrix)
+fit.cont<- eBayes(fit.cont)
+
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=45, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=45, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
+NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.05 & NTvnTvBT$adj.P.Val.y < 0.05)),]
+write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgA.csv", sep=',')
+```
+
+#### QC plots of analysis
+```{r}
+plotMDS(v,col=as.numeric(Strain))
+plot.new()
+plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1)
+qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
+```
+
+
+```{r}
+#Density plots
+dae <- DGEList(counts=(Ratio_IgG_IgA+0.5))
+keep <- filterByExpr(dae, design)
+#dae <- dae[keep,,keep.lib.sizes=TRUE]
+dae <- calcNormFactors(dae)
+logCPM <- cpm(dae, log=TRUE, normalized.lib.sizes = TRUE)
+
+#df_dseq = melt(v$E, variable.name = "Samples", value.name = "count")# reshape the matrix 
+df_dseq = melt(logCPM, variable.name = "Samples", value.name = "count")#
+df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
+mycolors <- colorRampPalette(brewer.pal(8,"Set1"))(15)
+
+ggplot(df_dseq, aes(x = count, color=Var2)) + 
+   geom_density(alpha = 0.5, size = 0.8) + 
+   facet_wrap(~Strain, ncol=2) +
+   theme_minimal() + xlim(-5, 25) +
+   scale_colour_manual(values=mycolors, name="") +
+   guides(fill="none")
+
+#R-Squared ....... goodness of fit
+for (i in 1:69){
+   sst <- rowSums(v$E^2)
+   ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
+   Rsq<- (ssr/sst)
+}
+plot(1:69, Rsq)
+which(Rsq<0.90)
+
+summary(fit.cont$r.squared)
+```

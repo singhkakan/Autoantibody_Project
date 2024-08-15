@@ -111,11 +111,11 @@ colData$Strain <- factor(colData$Strain)
 #### Filtering Data based on low Signal to Noise ratio
 ```{r Filtering rows with SNR<3}
 IgG_raw=list()
-IgG_SNR$average <- rowMeans(as.matrix(IgG_SNR)[,-11])
-IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR)[,-11])
+IgG_SNR$average <- rowMeans(as.matrix(IgG_SNR)[,-15])
+IgG_SNR$med <- rowMedians(as.matrix(IgG_SNR)[,-15])
 
-IgG_raw$NSI <- as.matrix(IgG_NSI[which(IgG_SNR$med>2.8),])
-IgG_raw$SNR <- as.matrix(IgG_SNR[which(IgG_SNR$med>2.8),])[,1:15]
+IgG_raw$NSI <- as.matrix(IgG_NSI[which(IgG_SNR$med>2.3),])
+IgG_raw$SNR <- as.matrix(IgG_SNR[which(IgG_SNR$med>2.3),])[,1:15]
 
 #IgG_raw$NSI <- as.matrix(IgG_NSI[which(rowSums(IgG_SNR[,1:15]>2.8) > 6),])
 #IgG_raw$SNR <- as.matrix(IgG_SNR[which(rowSums(IgG_SNR[,1:15]>2.8) > 6),][,1:15])
@@ -190,12 +190,12 @@ qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 #After removing outlier samples
 
 ###### Voom normalization with quantiles
-conditions<- paste(colData$Strain[-15],sep=".")
+conditions<- paste(colData$Strain[-c(8,15)],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
 
-v <- voom(counts=(IgG_raw$NSI[,-15]*IgG_raw$SNR[,-15]+0.5), design, plot=TRUE, normalize="quantile")
+v <- voom(counts=(IgG_raw$NSI[,-c(8,15)]*IgG_raw$SNR[,-c(8,15)]), design, plot=TRUE, normalize="quantile")
 #v <- voom(dae, design, plot=TRUE)
 fit <- lmFit(v, design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
@@ -250,12 +250,12 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
 
 ```{r}
 #R-Squared ....... goodness of fit
-for (i in 1:63){
+for (i in 1:66){
    sst <- rowSums(v$E^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
-plot(1:63, Rsq)
+plot(1:66, Rsq)
 which(Rsq<0.90)
 
 summary(fit.cont$r.squared)
@@ -313,15 +313,13 @@ length(DElist)
 fitObjDE <-fitObj[DElist,]
 write.csv(fitObjDE,file="IgG_Tears_Voom_Hits.csv", sep=',')
 fitObjDE$Autoantigen <- rownames(fitObjDE)
-
-mydata <- as.matrix(v$E)
 ```
 
 #### Boxplots from voom normalized counts ####
 
 ```{r Boxplots for Tear IgG Tear DE Genes}
 chart_design <- theme(
-   plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
+   plot.title = element_text(color = "Black", size = 18, face = "bold", margin = margin(b=15), hjust=0.4),
    axis.text.x = element_text(size=15),
    axis.text.y = element_text(size=14),
    axis.title.x = element_blank(),
@@ -333,33 +331,36 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-mydata <- as.matrix(v$E)
+#mydata <- as.matrix(log(IgG_raw$NSI*IgG_raw$SNR +0.5))
+mydata <- (v$E)
 hits <- rownames(NTvnTvBT)
 
-Y=matrix(nrow=33,ncol=14)
+hits[(length(hits)+1)] <- "Ro SSA 52"
+#hits[(length(hits)+1)] <- "Ro SSA 60"
 
-for (i in 1:33) {
+Y=matrix(nrow=length(hits),ncol=13)
+for (i in 1:length(hits)) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
-colnames(Y) <- colData$Sample[-15]
+colnames(Y) <- colData$Sample[-c(8,15)]
 
 Y <- as.data.frame(t(Y))
-Y$Strain <- colData$Strain[-15]
-Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:5))
-
-for (i in 1:32){
-   filename <- paste(hits[i],"IgA_Tears.tiff", sep="")
+Y$Strain <- colData$Strain[-c(8,15)]
+Y$Sample <- paste0(Y$Strain, c(1:5,1:3, 1:5))
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+for (i in 1:length(hits)){
+   filename <- paste(hits[i],"IgG_Tears.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.7, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
       scale_color_manual(values=c("black", "navy")) +
       theme_minimal() +
       chart_design +
-      ylab("Log Norm Intensity")  + 
+      ylab("Log Norm Intensity")  + ylim(-1,14) +
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_fill_jco()
-   tiff(filename, units="in", width=3.45, height=3.5, res=300)
+   tiff(filename, units="in", width=3.2, height=3.75, res=300)
    print(p)
    dev.off()
 }
