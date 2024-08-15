@@ -554,7 +554,7 @@ nTvsBT$Antigen <- row.names(nTvsBT)
 NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
 rownames(NTvnTvBT) <- NTvnTvBT$Antigen
 NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
-   NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.05 & NTvnTvBT$adj.P.Val.y < 0.05)),]
+   NTvnTvBT <- NTvnTvBT[c(which(NTvnTvBT$adj.P.Val.x < 0.1 & NTvnTvBT$adj.P.Val.y < 0.1)),]
 
 write.csv(NTvnTvBT, file="NTvnTvBT_Serum_IgG.csv", sep=',')
 
@@ -567,9 +567,9 @@ plotMD(fit)
 plotMD(fit.cont)
 plotMDS(fit, col=as.numeric(Strain))
 plotMDS(fit)
-plotMA(fit)
-plotMA(fit.cont, coef=1)
-plotMA(fit.cont, coef=2)
+limma::plotMA(fit)
+limma::plotMA(fit.cont, coef=1)
+limma::plotMA(fit.cont, coef=2)
 #plot.new()
 qqnorm(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 
@@ -581,7 +581,7 @@ Quantile Normalization is over-normalizing this dataset. Therefore we will do a 
 Library Normalization appears to be the best recourse
 #####Voom Normalization After Removing outliers ####
 
-```{r Voom After removing outlier samples}
+```{r Voom After removing outlier samples, eval=FALSE, include=FALSE}
 
 ###### Voom normalization with quantiles
 conditions<- paste(colData$Strain[-c(1)],sep=".")
@@ -601,7 +601,7 @@ topTable(fit.cont, number=40)
 
 plotMDS(v,col=as.numeric(Strain[-c(1)]))
 plot.new()
-plotMA(fit.cont, coef=1)
+limma::plotMA(fit.cont, coef=1)
 plotMD(fit.cont, col=2)
 plotMD(fit.cont, col=1)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
@@ -627,12 +627,12 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
 
 #####R-Squared ....... goodness of fit ####
 ```{r}
-for (i in 1:77){
-   sst <- rowSums(v$E^2)
+for (i in 1:74){
+   sst <- rowSums(dataN^2)
    ssr <- sst - fit.cont$df.residual*(fit.cont$sigma^2)
    Rsq<- (ssr/sst)
 }
-plot(1:77, Rsq)
+plot(1:74, Rsq)
 which(Rsq<0.90)
 
 summary(fit.cont$r.squared)
@@ -692,11 +692,11 @@ write.csv(fitObjDE,file="IgG_Serum_Limma_Hits.csv", sep=',')
 fitObjDE$Autoantigen <- rownames(fitObjDE)
 ```
 
-##### Boxplots from voom normalized counts ####
+##### Boxplots from library normalized counts ####
 
 ```{r Boxplots for Serum IgG DE Genes}
 chart_design <- theme(
-   plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=10), hjust=0.4),,
+   plot.title = element_text(color = "Black", size = 18, face = "bold", margin = margin(b=10), hjust=0.4),
    axis.text.x = element_text(size=15),
    axis.text.y = element_text(size=14),
    axis.title.x = element_blank(),
@@ -711,8 +711,10 @@ chart_design <- theme(
 mydata <- as.matrix(dataN)
 #mydata <- as.matrix(v$E)
 hits <- rownames(NTvnTvBT)
-Y=matrix(nrow=12,ncol=15)
-for (i in 1:12) {
+hits[length(hits)+1] <- "Ro SSA 52"
+hits[length(hits)+1] <- "Ro SSA 60"
+Y=matrix(nrow=length(hits),ncol=15)
+for (i in 1:length(hits)) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -721,7 +723,7 @@ Y <- as.data.frame(t(Y))
 Y$Strain <- colData$Strain
 Y$Sample <- paste0(Y$Strain, c(1:5,1:4, 1:6))
 
-for (i in 1:12){
+for (i in 1:length(hits)){
    setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
    filename <- paste(hits[i],"IgG_Serum.tiff", sep="")
    p<- ggplot(Y, aes(x=Strain, y=Y[,i], fill=Strain)) +
@@ -731,9 +733,9 @@ for (i in 1:12){
       theme_minimal() +
       chart_design +
       ylab("Log Norm Intensity")  + 
-      labs(title=colnames(Y[i]), hjust=0.5) +
-      scale_fill_jco() #+ ylim(0,14)
-   tiff(filename, units="in", width=3.8, height=4.7, res=300)
+      labs(title=colnames(Y[i]), hjust=0.5)  +
+      scale_fill_jco() + ylim(0,16.9)
+   tiff(filename, units="in", width=3, height=3.7, res=300)
    print(p)
    dev.off()
 }
@@ -743,9 +745,7 @@ for (i in 1:12){
 ```{r}
 Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.05 & NTvnTvBT$adj.P.Val.y < 0.05 & NTvnTvBT$logFC.x>1.75 & NTvnTvBT$logFC.y>1.75)])]
 
-Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
-
+Y_combined <- Y_combined[,-which(colnames(Y_combined) %in% c("PL-7", "LKM 1"))]
 
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
@@ -756,21 +756,42 @@ chart_design <- theme(
    legend.title = element_blank(),
    legend.position = "bottom",
    axis.title.y = element_text(size=17, margin = margin(r = 5)),
-   strip.text.x = element_text(size =15, margin = margin(b=10), face='bold', hjust=0.4),
+   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-tiff("Serum_IgG_hits.tiff", units="in", width=8.5, height=6.5, res=300)
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
+
+tiff("Serum_IgG_hits.tiff", units="in", width=9.5, height=5.5, res=300)
 setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
-   facet_wrap(~Antigen, ncol=4, scales="free_x") +
+   facet_wrap(~Antigen, ncol=5, scales="free_x") +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_fill_jco()
 dev.off()
+
+Y_combined_2 <- Y_combined[,which(colnames(Y_combined) %in% c("PCNA", "La SSB", "LC1"))]
+Y_combined_2[,(ncol(Y_combined_2)+1):(ncol(Y_combined_2)+2)] <- Y[,(ncol(Y)-1):ncol(Y)]
+Y_combined_2 <- gather(Y_combined_2, "Antigen", "V Counts", 1:(ncol(Y_combined_2)-2))
+
+tiff("Serum_IgG_hits_Validated.tiff", units="in", width=6.5, height=3, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(Y_combined_2, aes(x=Strain, y=`V Counts`, fill=Strain)) +
+      geom_boxplot(outlier.shape = NA, width = 0.5, coef=1, varwidth=F, show.legend = T, size=0.65, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.5, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+   facet_wrap(~Antigen, ncol=3, scales="free_x") +
+      theme_minimal() +
+      chart_design +
+      ylab("Log Normalized Intensity")  + 
+      #labs(title=colnames(Y[i]), hjust=0.5) +
+      scale_fill_jco()
+dev.off()
+
 ```
 
