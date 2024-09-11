@@ -357,6 +357,7 @@ for (i in length(hits)){
       theme_minimal() +
       chart_design +
       ylab("Log Norm Intensity")  + 
+      scale_x_discrete(labels= c("BALB/c", "NOD", "NOR")) + 
       labs(title=colnames(Y[i]), hjust=0.5) +
       scale_fill_jco()
    tiff(filename, units="in", width=3.45, height=3.5, res=300)
@@ -369,31 +370,32 @@ for (i in length(hits)){
 ```{r}
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
-   axis.text.x = element_text(size=15, margin = margin(b=5)),
-   axis.text.y = element_text(size=15),
+   axis.text.x = element_text(size=16, margin = margin(b=5)),
+   axis.text.y = element_text(size=18),
    axis.title.x = element_blank(),
    legend.text = element_blank(),
    legend.title = element_blank(),
    legend.position = "top",
    axis.title.y = element_text(size=24, margin = margin(r = 5)),
-   strip.text.x = element_text(size =18, margin = margin(b=15), face='bold', hjust=0.4),
+   strip.text.x = element_text(size =19, margin = margin(b=15), face='bold', hjust=0.4),
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.06 & NTvnTvBT$adj.P.Val.y < 0.06 & NTvnTvBT$logFC.x>0)])]
-Y_combined[,14:15] <- Y[,c("IF", "La SSB")]
-Y_combined[,16:17] <- Y[,40:41]
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:15)
-Y_combined$Strain[which(Y_combined$Strain=="BALBc")] <- ("BALB/c")
-
-tiff("Tear_IgA_hits.tiff", units="in", width=10.5, height=9, res=300)
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.05 & NTvnTvBT$adj.P.Val.y < 0.05 & NTvnTvBT$logFC.x>0)])]
+#Y_combined[,14:15] <- Y[,c("IF", "La SSB")]
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,41:42]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:13)
+#Y_combined[which(Y_combined$Strain=="BALBc"),"Strain"] = factor("BALB/c")
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
+tiff("Tear_IgA_hits.tiff", units="in", width=12.2, height=8.5, res=300)
 ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
-      geom_boxplot(outlier.shape = NA, width = 0.6, coef=1, varwidth=F, show.legend = F, size=0.9, position = position_dodge(0.9)) +
-      geom_jitter(color = "darkgray", alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9))+
+      geom_boxplot(outlier.shape = NA, width = 0.7, coef=1, varwidth=F, show.legend = F, size=0.9, position = position_dodge(0.9)) +
+      geom_jitter(color = "darkgray", alpha =0.6, size=3.3, show.legend = F, position = position_jitterdodge(dodge.width=1.2))+
    facet_wrap(~Antigen, ncol=5, scales="free_x") +
       theme_minimal() +
       chart_design +
       ylab("Log Normalized Intensity")  + 
+   scale_x_discrete(labels= c("BALB/c", "NOD", "NOR")) +
       labs(title=factor(Y_combined$Antigen), hjust=0.5) +
       scale_fill_jco()
 dev.off()
@@ -411,7 +413,56 @@ Tear_Ig <- full_join(Tear_IgAhits[,c(1,5,6,7,8)], Tear_IgGhits[,c(1,5,6,7,8)], b
 write.csv(Tear_Ig,file="IgA_IgG_Overlap_Tears_Hits.csv", sep=',')
 ```
 
+#####Total tear IgG intesity values and total IgA intensity values. 
 ```{r}
+Tear_IgG_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_NSI.csv", header=TRUE)
+Tear_IgG_NSI_raw <- Tear_IgG_NSI_raw[1:89,1:16]
 
+Tear_IgA_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/IgA_MCF_SSK_546_Tear_NSI.csv", header=TRUE, row.names = 1)
+Tear_IgA_NSI_raw <- Tear_IgA_NSI_raw[1:89,]
+
+x = colSums(Tear_IgG_NSI_raw[1:80,2:16])
+y = colSums(Tear_IgA_NSI_raw[1:80,1:15])
+
+data <- as.data.frame(cbind(x,y))
+colnames(data) <- c("IgG","IgA")
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+data$Strain <- factor(Strain)
+data$Sample <- rownames(data)
+data <- gather(data, "Ig", "Intensity", 1:2)
+
+tiff("ColSum_IgA_vs_IgG.tiff", units="in", width=6, height=4.5, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   scale_fill_jco() + 
+   theme_minimal() + ylab("Total Intensity of Autoantibodies") +
+   chart_design + ylim(0,290000)
+dev.off()
+```
+
+Chunk for plotting IgG vs IgA control for each of the samples
+```{r}
+x = unlist(Tear_IgG_NSI_raw[82,2:16])
+y = unlist(Tear_IgA_NSI_raw[82,])
+
+data <- as.data.frame(cbind(x,y))
+colnames(data) <- c("IgG","IgA")
+data$Strain <- factor(Strain)
+data$Sample <- rownames(data)
+data <- gather(data, "Ig", "Intensity", 1:2)
+
+tiff("Tear_IgA_vs_IgG.tiff", units="in", width=6, height=4.5, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   scale_fill_jco() +
+    theme_minimal() +
+   ylab("Average Intensity of Ig Controls") +
+   chart_design + ylim(0,100000)
+dev.off()
+   #+ ylim(10,12)
 ```
 

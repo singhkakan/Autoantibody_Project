@@ -65,7 +65,7 @@ library(ggplot2)
 ```
 
 # IgA Analysis ##########
-#______________________________________________________________
+#___________________________________________________
 
 ```{r Reading in Raw Serum Data}
 knitr::opts_chunk$set(
@@ -399,12 +399,57 @@ dev.off()
 ```
 
 
+#### Comparison of Total Serum IgG intesity values and total IgA intensity values. 
 ```{r}
+Serum_IgG_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_NSI_serum.csv", header=TRUE, row.names = 1)
+Serum_IgG_NSI_raw <- Serum_IgG_NSI_raw[1:88,]
+
+Serum_IgA_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/IgA_MCF_SSK_546_serum_NSI.csv", header=TRUE, row.names = 1)
+Serum_IgA_NSI_raw <- Serum_IgA_NSI_raw[1:88,]
+
+x = colSums(Serum_IgG_NSI_raw[1:80,])
+y = colSums(Serum_IgA_NSI_raw[1:80,]) 
+data <- as.data.frame(cbind(x,y))
+colnames(data) <- c("IgG","IgA")
+data$Strain <- factor(Strain)
+data$Sample <- rownames(data)
+data <- gather(data, "Ig", "Intensity", 1:2)
+
+tiff("ColSum_Serum_IgA_vs_IgG.tiff", units="in", width=5.5, height=4, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   scale_fill_jco() +
+   theme_minimal() +
+   ylab("Total Intensity of Autoantibodies") +
+   chart_design + ylim(0,290000)
+dev.off()
 
 ```
 
 
+Chunk for plotting IgG vs IgA control for each of the samples
 ```{r}
+x = unlist(Serum_IgG_NSI_raw[81,])
+y = unlist(Serum_IgA_NSI_raw[81,])
 
+data <- as.data.frame(cbind(x,y))
+colnames(data) <- c("IgG","IgA")
+data$Strain <- factor(Strain)
+data$Sample <- rownames(data)
+data <- gather(data, "Ig", "Intensity", 1:2)
+
+tiff("Serum_IgA_vs_IgG_Controls.tiff", units="in", width=5.5, height=4, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   scale_fill_jco() +
+    theme_minimal() +
+   ylab("Average Intensity of Ig Controls") +
+   chart_design + ylim(0,100000)
+dev.off()
+   #+ ylim(10,12)
 ```
 
