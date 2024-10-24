@@ -76,7 +76,7 @@ knitr::opts_chunk$set(
 )
 
 setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
-IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_NSI_norm_Serum.csv",  header=T)[1:80,]
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_serum_NSI.csv",  header=T)[1:80,]
 IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_SNR_Serum.csv",  header=T)[1:80,]
 Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
 
@@ -91,6 +91,7 @@ Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_
 #colnames(IgA_SNR)[1] <- colnames(Antigen_ID)[2]
 
 Antigen_ID[68,"ID"] <- IgA_NSI[68,"ID"]
+IgA_SNR[68,"ID"] <- Antigen_ID[68,"ID"]
 IgA_NSI <- full_join(IgA_NSI, Antigen_ID, by="ID")
 IgA_SNR <- full_join(IgA_SNR, Antigen_ID, by="ID")
 rownames(IgA_NSI) <- IgA_NSI$Antigen_ID
@@ -119,61 +120,63 @@ colData$Strain <- factor(colData$Strain)
 #### Filtering Data based on low Signal to Noise ratio
 ```{r Filtering rows with SNR<3}
 IgA_raw=list()
-IgA_SNR$average <- rowMeans(IgA_SNR[,-1])
-IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR[-1]))
+IgA_SNR$average <- apply(cbind(rowMeans(as.matrix(IgA_SNR)[,1:9]), rowMeans(as.matrix(IgA_SNR)[,10:14])), 1, max)
+IgA_SNR$med <- apply(cbind(rowMedians(as.matrix(IgA_SNR)[,1:9]), rowMedians(as.matrix(IgA_SNR)[,10:14])), 1, max)
 
-IgA_NSI$average <- rowMeans(IgA_NSI[,-1])
-IgA_NSI$med <- rowMedians(as.matrix(IgA_NSI[-1]))
+IgA_NSI$average <- apply(cbind(rowMeans(as.matrix(IgA_NSI)[,1:9]), rowMeans(as.matrix(IgA_NSI)[,10:14])), 1, max)
+IgA_NSI$med <- apply(cbind(rowMedians(as.matrix(IgA_NSI)[,1:9]), rowMedians(as.matrix(IgA_NSI)[,10:14])), 1, max)
 
 
-IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>2 & IgA_NSI$med>0),])[,1:15]
-IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>2 & IgA_NSI$med>0),])[,1:15]
+IgA_raw$NSI <- as.matrix(IgA_NSI[which(IgA_SNR$med>3 & IgA_NSI$med>5),])[,1:15]
+IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$med>3 & IgA_NSI$med>5),])[,1:15]
 ```
 
 #### Visualizing Filtered Data ####
 ```{r}
-dataN <- log2(IgA_NSI[,1:15] * IgA_SNR[,1:15] + 0.5) 
-countData = as.data.frame(dataN)
+dataN <- list()
+dataN$Unfiltered <- log2(IgA_NSI[,1:15] + 0.5) 
+dataN$Filtered <- log2(IgA_raw$NSI[,1:15] + 0.5) 
 
-df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
 
-mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
-
-ggplot(df_dseq, aes(x = count, color=Samples)) + 
+for (i in dataN) {
+   countData = as.data.frame(i)
+   df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
+   mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(15)
+   p <- ggplot(df_dseq, aes(x = count, color=Samples)) + 
    geom_density(alpha = 0.5, size = 0.8) + 
    #facet_wrap(~Strain, ncol=2) +
    theme_minimal() + #xlim(-1.5,6) +
    scale_colour_manual(values=mycolors, name="") +
    guides(fill="none")
+   print(p)
+}
 ```
 
 NOD M1 Serum appears to be the most variable, and was therefore removed
 
 #### Boxplots of raw and SNR based Filtered Data ####
 
-```{r}
-boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
-
-dataN <- (IgA_NSI[,1:15] * IgA_SNR[,1:15] ) 
+```{r Boxplots of raw data}
+dataN <- (IgA_NSI[,1:15] ) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="NSI*SNR")
+boxplot(as.data.frame((dataN)),main="Unfiltered NSI")
 
-dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+dataN <- (IgA_raw$NSI +0.5) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
+boxplot(as.data.frame((dataN)),main="Filtered NSI")
 
 dataN <- log2(IgA_raw$NSI + 0.5) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="NSI")
+boxplot(as.data.frame((dataN)),main="Log2 NSI")
 ```
 
 #IgA levels appear to be much lower in serum than in tears
 
 
-#Limma Based Quantile Normalization
+#Limma Based Normalization
 ```{r}
 library(limma)
-dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+dataN <- log2(IgA_raw$NSI +0.5) 
 mydata <- as.matrix(dataN)
 
 conditions<- paste(colData$Strain,sep=".")
@@ -189,7 +192,7 @@ cont.matrix<- makeContrasts(
    nTvBT = NOR - BALBc,
    levels = design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
-fit.cont<- eBayes(fit.cont)
+fit.cont<- eBayes(fit.cont, robust=TRUE)
 plotMDS(fit)
 plot.new()
 plotMD(fit.cont, col=2)
@@ -203,12 +206,12 @@ NOD M1 was removed recursively
 ```{r Voom After removing outlier samples}
 
 ###### Voom normalization with quantiles
-conditions<- paste(colData$Strain[-c(1,3)],sep=".")
+conditions<- paste(colData$Strain[],sep=".")
 conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
 
-v <- voom(counts=(IgA_raw$NSI*IgA_raw$SNR + 0.5)[,-c(1,3)], design, plot=TRUE, normalize="quantile")
+v <- voom(counts=(IgA_raw$NSI + 0.5)[], design, plot=TRUE, normalize="quantile")
 
 #v <- voom(dae, design, plot=TRUE)
 fit <- lmFit(v, design)
@@ -217,20 +220,36 @@ fit.cont<- eBayes(fit.cont)
 topTable(fit.cont)
 #topTable(fit, coef=ncol(design))
 
+###DE Autoantigens List
+
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=25, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=25, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen", suffix = c(".NOD", ".NOR"))
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+
+which(NTvnTvBT$adj.P.Val.NOD > 0.05 & NTvnTvBT$adj.P.Val.NOR > 0.05)
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
+NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.NOD > 0.05 & NTvnTvBT$adj.P.Val.NOR > 0.05)),]
+write.csv(NTvnTvBT, file="NTvnTvBT_Serum_IgG.csv", sep=',')
+```
+
+#### Voom QC Plots
+
+```{r}
 plotMDS(v,col=as.numeric(Strain))
 plot.new()
 plotMD(fit.cont, col=2)
 plotMD(fit.cont, col=1)
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
 plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
-
-
-
 ```
+
 
 #### Density plots post voom normalization ####
 ```{r Density plots}
-dae <- DGEList(counts=(IgA_raw$NSI * IgA_raw$SNR + 0.5))
+dae <- DGEList(counts=(IgA_raw$NSI + 0.5))
 keep <- filterByExpr(dae, design)
 dae <- dae[keep,,keep.lib.sizes=FALSE]
 dae <- calcNormFactors(dae)
@@ -401,6 +420,8 @@ dev.off()
 
 #### Comparison of Total Serum IgG intesity values and total IgA intensity values. 
 ```{r}
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+
 Serum_IgG_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_NSI_serum.csv", header=TRUE, row.names = 1)
 Serum_IgG_NSI_raw <- Serum_IgG_NSI_raw[1:88,]
 
@@ -415,17 +436,41 @@ data$Strain <- factor(Strain)
 data$Sample <- rownames(data)
 data <- gather(data, "Ig", "Intensity", 1:2)
 
-tiff("ColSum_Serum_IgA_vs_IgG.tiff", units="in", width=5.5, height=4, res=300)
+#Statistics
+
+mod1 <- lm(log10(Intensity)~Strain*Ig, data)
+summary(mod1)
+TukeyHSD(aov(mod1))
+shapiro.test(mod1$residuals) #Data can be assumed to be normally distributed
+plot(mod, which = 3)
+leveneTest(aov(mod1)) #Homogeneity of variances can be assumed
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
+   axis.text.x = element_text(size=15),
+   axis.text.y = element_text(size=14),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=15),
+   legend.title = element_blank(),
+   legend.position = "top",
+   axis.title.y = element_text(size=18, margin = margin(r = 5)),
+   strip.text.x = element_text(size =16, margin = margin(b=10), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+tiff("ColSum_Serum_IgA_vs_IgG.tiff", units="in", width=5.5, height=5, res=300)
 setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
 ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
    geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
-   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = T, position = position_jitterdodge(dodge.width=0.9)) +
    scale_fill_jco() +
    theme_minimal() +
    ylab("Total Intensity of Autoantibodies") +
    chart_design + ylim(0,290000)
 dev.off()
-
 ```
 
 

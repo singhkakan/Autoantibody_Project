@@ -1,17 +1,18 @@
 ---
-title: "NOD NOR Tear Serum"
+title: "Supplemental Methods 1"
+subtitle: "Study 3 - Tear IgA Analysis"
 author: "Shruti Kakan"
-date: "2024-06-26"
+date: "Last Updated 2024-10-24"
 output: html_document
 ---
 #### Loading Libraries ####
-```{r setup, include=FALSE}
+```{r Setup, include=FALSE}
 
 knitr::opts_chunk$set(
 	echo = TRUE,
 	message = FALSE,
 	warning = FALSE,
-	root.dir = '~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/'
+	root.dir = "~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/"
 )
 library(car)
 library(lsmeans)
@@ -58,10 +59,9 @@ library(ggplot2)
 
 ```
 
-# IgA Analysis ##########
-#______________________________________________________________
+### ______________________________________________________________
 
-```{r Reading in Raw Tear Data}
+```{r Reading in Raw Tear Data, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 knitr::opts_chunk$set(
 	echo = TRUE,
 	message = FALSE,
@@ -70,13 +70,14 @@ knitr::opts_chunk$set(
 )
 
 setwd('~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/')
-IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:80,]
+#IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI_norm.csv",  header=T)[1:80,]
+IgA_NSI <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_NSI.csv",  header=T)[1:80,]
 IgA_SNR <- read.csv("IgA_data/IgA_MCF_SSK_546_Tear_SNR.csv",  header=T)[1:80,]
 Strain <- c(rep("NOD", each=5),rep("NOR", each=3), rep("BALBc", each=6))
 ```
 
-#Adding Auto-antigen id names 
-```{r Adding Auto-antigen id names }
+### Adding Auto-antigen id names 
+```{r Adding Auto-antigen id names, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 #Adding Auto-antigen id names 
 Antigen_ID <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/Antigen_ID.csv",  header=T)[1:80,1:2]
 
@@ -94,10 +95,8 @@ IgA_SNR <- IgA_SNR[,-c(1, 17)]
 
 ```
 
-
-```{r}
-####Setting up column metadata
-
+#### Setting up column Metadata
+```{r Column Metadata, message=FALSE, warning=FALSE}
 Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
 
 colData <- as.data.frame(cbind(c(colnames(IgA_NSI)), Strain))
@@ -112,8 +111,10 @@ colData$Strain <- factor(colData$Strain)
 ```
 
 
-#### Filtering Data based on low Signal to Noise ratio
-```{r Filtering rows with SNR<3}
+### Filtering Data based on low Signal to Noise ratio
+
+Rows with low signal to noise ratio of less than rowmeans 2.8 were removed. Additionally rows with low overall signal intensity were also removed.
+```{r Filtering rows with SNR<3, message=FALSE, warning=FALSE}
 IgA_raw=list()
 IgA_SNR$average <- rowMeans(as.matrix(IgA_SNR))
 IgA_SNR$med <- rowMedians(as.matrix(IgA_SNR))
@@ -123,13 +124,14 @@ IgA_raw$SNR <- as.matrix(IgA_SNR[which(IgA_SNR$average>2.8),])[,1:15]
 #IgA_raw$NSI <- as.matrix(IgA_NSI[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),])
 #IgA_raw$SNR <- as.matrix(IgA_SNR[which(rowSums(IgA_SNR[,1:15]>2.8) > 6),][,1:15])
 
-log2(colSums(IgA_raw$NSI*IgA_raw$SNR))
+log2(colSums(IgA_raw$NSI+0.5))
 
 ```
+This reduced the total number of Autoantibodies (rows) included in the analysis from 80 to 69.
 
-#### Visualizing Filtered Data ####
-```{r}
-dataN <- log2(IgA_NSI * IgA_SNR[,1:15] + 0.5) 
+### Visualizing Filtered Data ####
+```{r Desnity plots of raw data, message=FALSE, warning=FALSE, paged.print=FALSE}
+dataN <- log2(IgA_NSI + 0.5) 
 countData = as.data.frame(dataN)
 
 df_dseq = melt(countData, variable.name = "Samples", value.name = "count")# reshape the matrix 
@@ -143,29 +145,30 @@ ggplot(df_dseq, aes(x = count, color=Samples)) +
    scale_colour_manual(values=mycolors, name="") +
    guides(fill="none")
 ```
+BALB/c Sample M6 appears to have extremely low signal intensity values across the board. 
 
+```{r Boxplots of raw & filtered data, message=FALSE, warning=FALSE, paged.print=FALSE}
+boxplot(as.data.frame((dataN)),main="Tear IgA Signal Intensity Prior to Row filtering")#,col=Sample)
 
-```{r}
-boxplot(as.data.frame((dataN)),main="IgG normalization")#,col=Sample)
-
-dataN <- (IgA_NSI * IgA_SNR[,1:15] ) 
+#dataN <- (IgA_NSI * IgA_SNR[,1:15] ) 
+dataN <- (IgA_NSI) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="NSI*SNR")
+#boxplot(as.data.frame((dataN)),main="NSI")
 
-dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+#dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5) 
+dataN <- log2(IgA_raw$NSI+0.5) 
 countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="Log2 NSI*SNR")
-
-dataN <- log2(IgA_raw$NSI + 0.5) 
-countData = as.data.frame(dataN)
-boxplot(as.data.frame((dataN)),main="NSI")
+boxplot(as.data.frame((dataN)),main="Tear IgA Signal Intensity After Row filtering")
 
 ```
 
-#Limma Based Quantile Normalization
+### Limma Based Default Normalization & DE Analysis
+
+Sample BALB/c M6 was excluded from normalization and differential expression analysis.
 ```{r}
 library(limma)
-dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5)[,-15]
+#dataN <- log2(IgA_raw$NSI * IgA_raw$SNR +0.5)[,-15]
+dataN <- log2(IgA_raw$NSI +0.5)[,-15] #Sample BALB/c M6 removed
 mydata <- as.matrix(dataN)
 
 conditions<- paste(colData$Strain[-15],sep=".")
@@ -181,16 +184,52 @@ cont.matrix<- makeContrasts(
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
 
+#MA plots showing relationship between average expression of autoantibodies and their log fold-changes
 plot.new()
-plotMD(fit.cont, col=2)
+plotMD(fit.cont, col=1) # NOD v BALB/c
+plotMD(fit.cont, col=2) # NOR v BALB/c
+
+# QQ Plots of normalized data
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+#Density plots of normalized Data
 plotDensities(fit)
 ```
 
+While this normalization works fairly well, most of the BALB/c samples show a relatively low signal intensity across the board. While this my be a true biological effect, we have to consider it as a potential batch effect owing to the fact that BALB/c is a closely matched control of NOD and NOR.  
 
-#### Voom Normalization After Removing outliers
-```{r}
-#After removing outlier samples
+```{r Limma Default DE Analysis, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+#Generating results data frames using Limma's topTable() function
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=50, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=50, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, 
+                      by="Antigen",
+                      suffix = c(".NOD", ".NOR"))
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+```
+
+### Results Table
+
+```{r Limma Default - Results Table, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+#Generating output file
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
+NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.NOD > 0.1 & NTvnTvBT$adj.P.Val.NOR > 0.1)),]
+write.csv(NTvnTvBT, file="Tear_IgA_Limma.csv", sep=',')
+
+print(NTvnTvBT[which(NTvnTvBT$logFC.NOD>1),c(1:2,5,8,12)])
+```
+16 IgA autoantibodies are significantly upregulated in both NOD & NOR as compared to male BALB/c with adjusted p value < 0.05
+
+### Voom Normalization After Removing outliers
+
+Using the Limma Voom package and a quantile normalization approach, we hope to completely remove the batch effect. This should give us a more conservative result.
+
+```{r Limma-Voom, Quantile Normalization, message=FALSE, warning=FALSE, paged.print=FALSE}
+#After removing outlier samples BALB/c 6
 
 ###### Voom normalization with quantiles
 conditions<- paste(colData$Strain[-15],sep=".")
@@ -198,43 +237,34 @@ conditions <- factor(conditions, levels=unique(conditions))
 design <- model.matrix(~0+ conditions)
 colnames(design) <- levels(conditions)
 
-v <- voom(counts=(IgA_raw$NSI[,-15]*IgA_raw$SNR[,-15]+0.5), design, plot=TRUE, normalize="quantile")
+v <- voom(counts=(IgA_raw$NSI[,-15]+0.5), design, plot=TRUE, normalize="quantile")
 #v <- voom(dae, design, plot=TRUE)
 fit <- lmFit(v, design)
 fit.cont<- contrasts.fit(fit, cont.matrix)
 fit.cont<- eBayes(fit.cont)
-
-NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=45, adjust.method = 'BH')
-nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=45, adjust.method = 'BH')
-NTvsBT$Antigen <- row.names(NTvsBT)
-nTvsBT$Antigen <- row.names(nTvsBT)
-NTvnTvBT <- full_join(NTvsBT, nTvsBT, by="Antigen")
-rownames(NTvnTvBT) <- NTvnTvBT$Antigen
-NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
-NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.x > 0.05 & NTvnTvBT$adj.P.Val.y > 0.05)),]
-write.csv(NTvnTvBT, file="NTvnTvBT_Tear_IgA.csv", sep=',')
-
-#plot(x=colSums(IgA_raw$NSI*IgA_raw$SNR), y=colSums(IgG_raw$NSI*IgG_raw$SNR))
+#plot(x=colSums(IgA_raw$NSI), y=colSums(IgG_raw$NSI))
 ```
 
 #### QC plots of analysis
 ```{r}
+#PC1 separates Diseases and healthy samples
 plotMDS(v,col=as.numeric(Strain))
+
+#MA plots showing relationship between average expression of autoantibodies and their log fold-changes
 plot.new()
-plotMD(fit.cont, col=2)
-plotMD(fit.cont, col=1)
+plotMD(fit.cont, col=1) # NOD v BALB/c
+plotMD(fit.cont, col=2) # NOR v BALB/c
+
+# The Q-Q plot is a fairly straight line
 qqt(fit.cont$t,df=fit.cont$df.prior+fit.cont$df.residual)
+
+# The Density plots of all three groups overlap fairly well, confirming that the batch effect has been largely normalized
 plotDensities(v, group=Strain, col=c("orange","green", "blue"), log=TRUE)
 ```
 
 
-```{r}
+```{r Density plots of Normalized Data by Strain, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 #Density plots
-dae <- DGEList(counts=(IgA_raw$NSI*IgA_raw$SNR+0.5))
-keep <- filterByExpr(dae, design)
-dae <- dae[keep,,keep.lib.sizes=FALSE]
-dae <- calcNormFactors(dae)
-logCPM <- cpm(dae, log=TRUE, prior.count=2)
 
 df_dseq = melt(v$E, variable.name = "Samples", value.name = "count")# reshape the matrix 
 df_dseq$Strain <- factor(substr(df_dseq$Var2, 1,3))
@@ -247,6 +277,12 @@ ggplot(df_dseq, aes(x = count, color=Var2)) +
    scale_colour_manual(values=mycolors, name="") +
    guides(fill="none")
 
+```
+
+Sample wise Density plots facetted by the mouse strain show that voom normalized Log2 transformed NSI data of each sample overlap quite well and follow normal distribution. 
+
+### QC: Assessing Goodness of fit
+```{r goodness of fit}
 #R-Squared ....... goodness of fit
 for (i in 1:69){
    sst <- rowSums(v$E^2)
@@ -259,11 +295,28 @@ which(Rsq<0.90)
 summary(fit.cont$r.squared)
 ```
 
+### Results Table: Limma-Voom (Quantile) Normalized DE 
+```{r Limma-Voom Results Table, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
+NTvsBT <- topTable(fit.cont, coef=1, p.value=1, number=50, adjust.method = 'BH')
+nTvsBT <- topTable(fit.cont, coef=2, p.value=1, number=50, adjust.method = 'BH')
+NTvsBT$Antigen <- row.names(NTvsBT)
+nTvsBT$Antigen <- row.names(nTvsBT)
+NTvnTvBT <- full_join(NTvsBT, nTvsBT, 
+                      by="Antigen", 
+                      suffix = c(".NOD", ".NOR"))
+rownames(NTvnTvBT) <- NTvnTvBT$Antigen
+NTvnTvBT[is.na(NTvnTvBT)] <- 0.5
+NTvnTvBT <- NTvnTvBT[-c(which(NTvnTvBT$adj.P.Val.NOD > 0.1 & NTvnTvBT$adj.P.Val.NOR > 0.1)),]
+write.csv(NTvnTvBT, file="Tear_IgA_voom.csv", sep=',')
+print(NTvnTvBT[which(NTvnTvBT$logFC.NOD>1),c(1:2,5,8,12)])
+```
 
-The BALB/c sample 6 was removed
+Thirteen Auto-antibodies are significantly upregulated in tears of both male NOD & male NOR as compared to tears of healthy male BALB/c.  
 
-###Determining DE genes
-```{r}
+### Plotting DE Autoantibodies
+
+```{r Comparing different methods of p-value correction, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 decide <- matrix(c("fdr",0.05,
                    "fdr",0.1, "none",0.005, "none", 0.01),nrow=4,ncol=2,byr=T)
 # initialize:
@@ -296,7 +349,7 @@ for (test in 1:nrow(decide))
 }
 ```
 #### DE Analysis using voom normalized counts
-```{r}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 results<-decideTests(fit.cont,adjust.method="none", p=0.005)
 summary(results)
 
@@ -314,9 +367,9 @@ fitObjDE$Autoantigen <- rownames(fitObjDE)
 
 ```
 
-#### Boxplots from voom normalized counts ####
+### Boxplots from voom normalized counts ####
 
-```{r Boxplots for Tear IgA DE Genes}
+```{r Individual Boxplots for Tear IgA DE Genes, message=FALSE, warning=FALSE, paged.print=FALSE}
 chart_design <- theme(
    plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),
    axis.text.x = element_text(size=15),
@@ -335,9 +388,9 @@ hits <- rownames(NTvnTvBT)
 hits[(length(hits)+1)] <- "Ro SSA 52"
 #hits[(length(hits)+1)] <- "RoSSA 60"
 
-Y=matrix(nrow=40,ncol=14)
+Y=matrix(nrow=length(hits),ncol=14)
 
-for (i in 1:40) {
+for (i in 1:length(hits)) {
    Y[i,] <- mydata[hits[i],]
 }
 rownames(Y) <- hits
@@ -364,10 +417,11 @@ for (i in length(hits)){
    print(p)
    dev.off()
 }
+#print(p)
 ```
 
-
-```{r}
+#### Combined Boxplots of Upregulated hits 
+```{r Combined Boxplots, echo=TRUE, fig.height=8.5, fig.width=12.2, message=FALSE, warning=FALSE, paged.print=FALSE}
 chart_design <- theme(
    #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
    axis.text.x = element_text(size=16, margin = margin(b=5)),
@@ -381,14 +435,18 @@ chart_design <- theme(
    strip.background = element_blank(), 
    strip.placement = "outside")
 
-Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.x<0.05 & NTvnTvBT$adj.P.Val.y < 0.05 & NTvnTvBT$logFC.x>0)])]
+#Generating Data Frame for plotting Combined boxplot
+Y_combined <- Y[,c(NTvnTvBT$Antigen[which(NTvnTvBT$adj.P.Val.NOD<0.051 & NTvnTvBT$adj.P.Val.NOR < 0.051 & NTvnTvBT$logFC.NOD>0)])]
 #Y_combined[,14:15] <- Y[,c("IF", "La SSB")]
-Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,41:42]
-Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:13)
+Y_combined[,(ncol(Y_combined)+1):(ncol(Y_combined)+2)] <- Y[,(ncol(Y)-1):(ncol(Y))]
+Y_combined <- gather(Y_combined, "Antigen", "V Counts", 1:(ncol(Y_combined)-2))
 #Y_combined[which(Y_combined$Strain=="BALBc"),"Strain"] = factor("BALB/c")
+
+
+#Generating combined boxplot of 13 autoantibodies using ggplot()
 setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/")
 tiff("Tear_IgA_hits.tiff", units="in", width=12.2, height=8.5, res=300)
-ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
+q <- ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
       geom_boxplot(outlier.shape = NA, width = 0.7, coef=1, varwidth=F, show.legend = F, size=0.9, position = position_dodge(0.9)) +
       geom_jitter(color = "darkgray", alpha =0.6, size=3.3, show.legend = F, position = position_jitterdodge(dodge.width=1.2))+
    facet_wrap(~Antigen, ncol=5, scales="free_x") +
@@ -398,12 +456,15 @@ ggplot(Y_combined, aes(x=Strain, y=`V Counts`, fill=Strain)) +
    scale_x_discrete(labels= c("BALB/c", "NOD", "NOR")) +
       labs(title=factor(Y_combined$Antigen), hjust=0.5) +
       scale_fill_jco()
+print(q)
 dev.off()
+
+(q)
 ```
 
 
 
-##### Code for Comparing Tear IgG and IgA  ##################
+### Code for Comparing Tear IgG and IgA  ##################
 ```{r}
 Tear_IgAhits <- read.csv("IgA_Tears_Voom_Hits.csv", header=T)
 Tear_IgGhits <- read.csv("IgG_Tears_Voom_Hits.csv", header=T)
@@ -413,56 +474,290 @@ Tear_Ig <- full_join(Tear_IgAhits[,c(1,5,6,7,8)], Tear_IgGhits[,c(1,5,6,7,8)], b
 write.csv(Tear_Ig,file="IgA_IgG_Overlap_Tears_Hits.csv", sep=',')
 ```
 
-#####Total tear IgG intesity values and total IgA intensity values. 
+#### Total tear IgG total IgA intensity values. 
 ```{r}
-Tear_IgG_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_NSI.csv", header=TRUE)
-Tear_IgG_NSI_raw <- Tear_IgG_NSI_raw[1:89,1:16]
+Tear_IgG_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_NSI.csv", header=TRUE, row.names = 1, nrows=88)
+Tear_IgG_NSI_raw <- Tear_IgG_NSI_raw[,1:15]
+Tear_IgG_SNR_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgG_MCF_SSK_546_Tear_SNR.csv", header=TRUE, row.names = 1, , nrows=88)
 
 Tear_IgA_NSI_raw <- read.csv("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/IgA_data/IgA_MCF_SSK_546_Tear_NSI.csv", header=TRUE, row.names = 1)
-Tear_IgA_NSI_raw <- Tear_IgA_NSI_raw[1:89,]
+Tear_IgA_NSI_raw <- Tear_IgA_NSI_raw[1:88,]
 
-x = colSums(Tear_IgG_NSI_raw[1:80,2:16])
-y = colSums(Tear_IgA_NSI_raw[1:80,1:15])
+x = colSums(Tear_IgG_NSI_raw[1:80,1:14])
+y = colSums(Tear_IgA_NSI_raw[1:80,1:14])
 
 data <- as.data.frame(cbind(x,y))
 colnames(data) <- c("IgG","IgA")
-Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=5))
 data$Strain <- factor(Strain)
 data$Sample <- rownames(data)
 data <- gather(data, "Ig", "Intensity", 1:2)
 
-tiff("ColSum_IgA_vs_IgG.tiff", units="in", width=6, height=4.5, res=300)
-setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
-ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+chart_design <- theme(
+   #plot.title = element_text(color = "Black", size = 16, face = "bold", margin = margin(b=15), hjust=0.4),,
+   axis.text.x = element_text(size=16, margin = margin(b=5)),
+   axis.text.y = element_text(size=18),
+   axis.title.x = element_blank(),
+   legend.text = element_text(size=10),
+   legend.title = element_blank(),
+   legend.position = "top",
+   axis.title.y = element_text(size=20, margin = margin(r = 5)),
+   strip.text.x = element_text(size =19, margin = margin(b=15), face='bold', hjust=0.4),
+   strip.background = element_blank(), 
+   strip.placement = "outside")
+
+p <- ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
    geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
-   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = T, position = position_jitterdodge(dodge.width=0.9)) +
    scale_fill_jco() + 
-   theme_minimal() + ylab("Total Intensity of Autoantibodies") +
-   chart_design + ylim(0,290000)
+   theme_minimal() + 
+   ylab("Total Intensity of Autoantibodies") +
+   chart_design #+ 
+   #ylim(1,(290000))
+
+tiff("ColSum_IgA_vs_IgG.tiff", units="in", width=5.5, height=4.5, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+print(p)
+dev.off()
+
+print(p)
+```
+While sum of intensity of 80 autoantigens for IgA is higher in NOR mice tears than IgG, this increase is not statistically significant.
+
+No significant difference was observed between the mean signal IgG intensity as compared to IgA signal intensity for the 80 autoantigens tested in either male NOD or BALB/c mice. 
+
+```{r Statistics for colSums, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+mod <- lm((Intensity) ~ Strain*Ig, data)
+aov(mod)
+summary(aov(mod))
+TukeyHSD(aov(mod))
+plot(mod, which = 2)
+hist(mod$residuals)
+
+shapiro.test(mod$residuals) #data are non-normal
+plot(mod, which = 3)
+#leveneTest(aov(Intensity ~ Strain + Ig, data=data))
+```
+
+
+
+#### Chunk for plotting IgG vs IgA secondary control for each of the samples
+
+```{r Mouse IgG vs IgA control, message=FALSE, warning=FALSE, paged.print=FALSE}
+#x1 = unlist(Tear_IgG_NSI_raw[87,2:16])
+#x2 = unlist(Tear_IgG_NSI_raw[88,2:16])
+#y1 = unlist(Tear_IgA_NSI_raw[87,])
+#y2 = unlist(Tear_IgA_NSI_raw[88,])
+Strain <- c(rep("NOD", each=5),rep("NOR", each=4), rep("BALBc", each=6))
+x = unlist(lapply(Tear_IgG_NSI_raw[87:88,], mean, 2))
+y = unlist(lapply(Tear_IgA_NSI_raw[87:88,], mean, 2))
+data <- as.data.frame(cbind(x,y))
+colnames(data) <- c("IgG","IgA")
+data$Strain <- factor(Strain)
+data$Sample <- rownames(data)
+data <- gather(data, "Ig", "Intensity", 1:2)
+
+tiff("Tear_IgA_vs_IgG.tiff", units="in", width=5.5, height=4.5, res=300)
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
+q <- ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
+   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
+   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = T, position = position_jitterdodge(dodge.width=0.9)) +
+   scale_fill_jco() +
+   theme_minimal() +
+   ylab("Average Intensity of Ig Controls") +
+   chart_design #+ 
+   #ylim(0,100000)
+print(q)
+dev.off()
+
+print(q)
+   #+ ylim(10,12)
+```
+
+Signal intensity observed for mouse IgA secondary control was significantly higher than the intensity observed for mouse IgG secondary control in the tears of male NOD, NOR and BALB/c mice. Levels of signal intensity for either IgG or IgA were consistent between the three mouse groups.
+
+
+```{r Statistics for secondary controls, echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#Statistics 
+mod <- lm((Intensity) ~ Strain*Ig, data)
+aov(mod)
+summary(aov(mod))
+TukeyHSD(aov(mod))
+plot(mod, which = 2)
+hist(mod$residuals)
+
+shapiro.test(mod$residuals) #data are normally distributed
+plot(mod, which = 3)
+```
+
+
+
+### Tear IgG vs IgA Correlation Analysis #########
+
+Scatterplots showing raw signal intensity for IgG vs IgA of each autoantigen in the tears of NOD, NOR and BALB/c mice. 
+
+```{r Correlation Analysis, echo=TRUE, fig.height=11.5, fig.width=16, message=FALSE, warning=FALSE, paged.print=FALSE}
+#which((rowSums(Tear_IgG_SNR_raw[1:80,1:15])/15) < 2.8)
+#which((rowSums(IgA_SNR[1:80,])/15) < 2.8)
+
+Tear_IgA_NSI <- Tear_IgA_NSI_raw[1:80,]
+Tear_IgA_NSI <- Tear_IgA_NSI[-c(which((rowSums(Tear_IgG_SNR_raw[1:80,1:15])/15) < 2.8 & (rowSums(IgA_SNR[1:80,])/15) < 2.8)),]
+Tear_IgA_NSI$Antigen <- rownames(Tear_IgA_NSI)
+Tear_IgA_NSI <- gather(Tear_IgA_NSI, "Sample", "Intensity", 1:(ncol(Tear_IgA_NSI)-1))
+Tear_IgA_NSI$Strain <- str_sub(Tear_IgA_NSI$Sample, 1, (str_locate(Tear_IgA_NSI$Sample, "_")[,1] -1))
+Tear_IgA_NSI$Ig <- "IgA"
+
+Tear_IgG_NSI <- Tear_IgG_NSI_raw[1:80,]
+Tear_IgG_NSI <- Tear_IgG_NSI[-c(which((rowSums(Tear_IgG_SNR_raw[1:80,])/15) < 2.8 & (rowSums(IgA_SNR[1:80,])/15) < 2.8)),]
+Tear_IgG_NSI$Antigen <- rownames(Tear_IgG_NSI)
+Tear_IgG_NSI <- gather(Tear_IgG_NSI, "Sample", "Intensity", 1:(ncol(Tear_IgG_NSI)-1))
+Tear_IgG_NSI$Strain <- str_sub(Tear_IgG_NSI$Sample, 1, (str_locate(Tear_IgG_NSI$Sample, "_")[,1] -1))
+Tear_IgG_NSI$Ig <- "IgG"
+
+data_mat <- dplyr::bind_rows(Tear_IgG_NSI, Tear_IgA_NSI)
+
+###Plot for NODs & NORs
+data_mat2 <- dplyr::full_join(Tear_IgA_NSI, Tear_IgG_NSI, by = c("Antigen", "Sample"),suffix = c(".IgA", ".IgG"),)
+
+### Plot for NORs
+ggplot(data = data_mat2[which(data_mat2$Strain.IgA=="NOR"),]) +
+   geom_point(aes(x=(Intensity.IgA), y=(Intensity.IgG), fill=factor(Antigen), color=factor(Antigen)), show.legend = F) +
+   facet_wrap(~factor(Antigen)) 
+```
+
+
+```{r Plot for BALB/c, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+### Plot for BALB/c
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
+tiff("BALBc_IgGvsIgA_Tears.jpeg", units="in", width=16, height=9.5, res=300)
+ggplot(data = data_mat2[which(data_mat2$Strain.IgA=="BALBc"),], aes(x=log10(Intensity.IgA+1), y=log10(Intensity.IgG+1))) +
+   geom_point(aes( fill=factor(Antigen), color=factor(Antigen)), show.legend = F) +
+   geom_smooth(method=lm, se=FALSE, fullrange=FALSE, linewidth=0.5) +
+   stat_cor(color='black', method = "spearman", label.x=0, label.y = 4, p.digits=2, p.accuracy = 0.0001) +
+   facet_wrap(~factor(Antigen),nrow=7) +
+   chart_design
+dev.off()
+
+```
+
+
+There is a need to normalize the x and y axes. In the next plot, we run correlation on log10 normalized NSI for IgG and IgA.
+
+```{r DGCA analysis, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#### DGCA Analysis
+BiocManager::install(c("GO.db", "AnnotationDbi", "impute", "preprocessCore"))
+install.packages("WGCNA")
+install.packages("devtools")
+#For this github install to work you will need to update your personal access token or delete your personal access token.
+#remotes::install_github("andymckenzie/DGCA")
+
+####"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"###
+####"Old-new-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#October 2024#
+
+#define design matrix as IgG vs IgA
+n_IgA_samples = 15; n_IgG_samples = 15 
+Ig_type = c(rep("IgA", n_oligo_samples), rep("IgG", n_neuron_samples))
+design_mat = model.matrix(~ Ig_type + 0)
+colnames(design_mat) = c("IgA", "IgG")
+str(design_mat)
+design_mat <- model.matrix(~0+ data_mat$Ig)
+
+library(DGCA, quietly = TRUE)
+ddcor_res = ddcorAll(inputMat = data_mat, design = design,
+  compare = c("IgA", "IgG"),
+  adjust = "none", heatmapPlot = FALSE, nPerm = 0, nPairs = 100)
+head(ddcor_res)
+```
+
+### Correlation Analysis Figure
+```{r Plot for NODs & NOR, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+chart_design <- theme(
+   plot.title = element_text(color = "Black", size = 20, face = "bold", margin = margin(b=5), hjust=0.4),
+   legend.position = 'bottom',
+   legend.text = element_text(size=13, margin = margin(t=1, b=1)),
+   axis.text.x = element_text(size=12),
+   axis.text.y = element_text(size=12),
+   axis.title.x = element_text(size=18, margin = margin(t=5, b=1)),
+   axis.title.y = element_text(size=18, margin = margin(r=5)),
+   strip.text.x = element_text(size =10, margin = margin(b=2), face='bold', hjust=0.4),
+   strip.background = element_blank(), strip.placement = "outside")
+
+
+p <- ggplot(data = data_mat2[which(data_mat2$Strain.IgA %in% c("NOD", "NOR")),], aes(x=log10(Intensity.IgA+1), y=log10(Intensity.IgG+1))) +
+   geom_point(aes(fill=Strain.IgA, color=factor(Antigen)), pch=21, size=3, alpha = 0.8, show.legend = TRUE) +
+   facet_wrap(~factor(Antigen), nrow=7) +
+   geom_smooth(method=lm, se=FALSE, fullrange=FALSE, linewidth=0.5) +
+   #scale_color_manual(values=col) +
+   #scale_shape_manual(values=c(1:25,1:11)) +
+   scale_fill_jco(guide="legend") +
+   guides(color="none") +
+   theme_minimal() +
+   xlab("Log 10 IgA NSI") +
+   ylab("Log 10 IgG NSI") +
+   stat_cor(color='black', method = "spearman", label.x=0, label.y = 4, p.digits=2, p.accuracy = 0.0001) +
+   chart_design
+
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
+tiff("ScatterPlot_IgGvsIgA_Tears.jpeg", units="in", width=16, height=9.5, res=300)
+print(p)
+dev.off()
+
+print(p)
+```
+
+Sctterplots of IgG vs IgA for NOD, NOR and BALB/c.  Each point represents one mouse. Spearman correlation coefficient rho and p-values are shown. p < 0.01 is considered significant.
+
+```{r Correlation Plot for NOD, echo=TRUE, fig.height=12.5, fig.width=16, message=FALSE, warning=FALSE, paged.print=FALSE}
+### Plot for NOD, NOR & BALB/c
+data_mat2$model <- ifelse(data_mat2$Strain.IgA=="BALBc", "Healthy", "SjD")
+
+p <- ggplot(data = data_mat2, aes(x=log10(Intensity.IgA+1), y=log10(Intensity.IgG+1))) +
+   geom_point(aes( color=factor(model), fill=factor(Antigen)), show.legend = F, alpha = 0.8) +
+   geom_smooth(aes(color = factor(model)),method=lm, se=FALSE, fullrange=FALSE, linewidth=0.25) +
+   scale_color_jco(guide="legend") +
+   guides(fill="none") +
+   theme_minimal() + ylim(-1, 4.6) +
+   xlab("Log 10 IgA NSI") +
+   ylab("Log 10 IgG NSI") +
+   stat_cor(aes(color=factor(model)), method = "spearman", r.digits=2, p.accuracy=0.0005, label.y = c(-0.9,4.4), cor.coef.name="rho") +
+   facet_wrap(~factor(Antigen),nrow=7) +
+   chart_design
+
+print(p)
+
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
+tiff("All_IgGvsIgA_Tears.jpeg", units="in", width=16, height=10, res=300)
+print(p)
 dev.off()
 ```
 
-Chunk for plotting IgG vs IgA control for each of the samples
-```{r}
-x = unlist(Tear_IgG_NSI_raw[82,2:16])
-y = unlist(Tear_IgA_NSI_raw[82,])
+#### Scatterplot of shared epitopes between upregulated IgG and IgA autoantibodies 
 
-data <- as.data.frame(cbind(x,y))
-colnames(data) <- c("IgG","IgA")
-data$Strain <- factor(Strain)
-data$Sample <- rownames(data)
-data <- gather(data, "Ig", "Intensity", 1:2)
+Scatterplot of Log10 IgG vs Log10 IgA NSI of shares epitopes of autoantibodies that are significantly upregulated in male NOD and male NOR mice tears when compared to BALB/c controls.
+NOD and NOR are shown in yellow (referred to an SjD) and BALB/c are shown in blue (referred to as Healthy).
 
-tiff("Tear_IgA_vs_IgG.tiff", units="in", width=6, height=4.5, res=300)
-setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022/")
-ggplot(data, aes(x=Strain, y=(Intensity), fill=Ig)) +
-   geom_boxplot(outlier.shape = NA, width = 0.8, coef=1, varwidth=F, show.legend = T, size=0.9, position = position_dodge(0.9)) +
-   geom_jitter(aes(colour = Ig), alpha =0.6, size=2.5, show.legend = F, position = position_jitterdodge(dodge.width=0.9)) +
-   scale_fill_jco() +
-    theme_minimal() +
-   ylab("Average Intensity of Ig Controls") +
-   chart_design + ylim(0,100000)
+```{r Supplemental Figure 6, echo=TRUE, fig.height=4.8, fig.width=6.5, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+data_mat3 <- data_mat2[which(data_mat2$Antigen %in% c("tTG", "TPO", "Mi-2", "Jo-1", "IA-2", "SAE1/SAE2 ")),]
+p <- ggplot(data = data_mat3, aes(x=log10(Intensity.IgA+1), y=log10(Intensity.IgG+1))) +
+   geom_point(aes( color=factor(model), fill=factor(Antigen)), show.legend = T, alpha = 0.8) +
+   geom_smooth(aes(color = factor(model)),method=lm, se=FALSE, fullrange=FALSE, linewidth=0.25) +
+   scale_color_jco(guide="legend") +
+   guides(fill="none") +
+   theme_minimal() + ylim(-1, 4.6) +
+   xlab("Log 10 IgA NSI") +
+   ylab("Log 10 IgG NSI") +
+   stat_cor(aes(color=factor(model)), method = "spearman", r.digits=2, p.accuracy=0.0005, label.y = c(-0.9,4.4), cor.coef.name="rho") +
+   facet_wrap(~factor(Antigen),nrow=2) +
+   chart_design
+
+print(p)
+
+setwd("~/Documents/3_Parkinsons_disease/Autoantibody_Data/Tear_Auto_Validation_2022")
+tiff("Supp_Figure_6.jpeg", units="in", width=6.5, height=4.8, res=300)
+print(p)
 dev.off()
-   #+ ylim(10,12)
 ```
 
